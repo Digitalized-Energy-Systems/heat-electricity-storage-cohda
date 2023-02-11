@@ -155,7 +155,7 @@ async def test_coalition_to_cohda_with_termination_long_scenario():
 
     assert len(asyncio.all_tasks()) == 1
     assert np.array_equal(
-        next(iter(agents[0].roles[0]._cohda.values()))._memory.solution_candidate.cluster_schedule.sum(axis=0),
+        next(iter(agents[0].roles[0]._cohda.values()))._memory.solution_candidate.power_cluster_schedule.sum(axis=0),
         [n_agents//2])
     assert next(iter(agents[0].roles[2]._weight_map.values())) == 1
 

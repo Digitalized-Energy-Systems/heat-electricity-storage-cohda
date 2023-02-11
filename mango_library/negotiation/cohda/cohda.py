@@ -1,15 +1,113 @@
 """Module for distributed real power planning with COHDA. Contains roles, which
 integrate COHDA in the negotiation system and the core COHDA-decider together with its model.
 """
-from typing import List, Dict, Any, Tuple, Optional, Callable
 import asyncio
-import numpy as np
+import logging
+import time
+from typing import List, Dict, Any, Tuple, Optional, Callable
 
+import numpy as np
+import pandas as pd
 from mango.messages.codecs import json_serializable
-from mango_library.negotiation.core import NegotiationParticipant, NegotiationStarterRole, Negotiation
+
 from mango_library.coalition.core import CoalitionAssignment
 from mango_library.negotiation.cohda.data_classes import \
-    SolutionCandidate, SystemConfig, WorkingMemory, ScheduleSelection
+    SolutionCandidate, SystemConfig, WorkingMemory, ScheduleSelection, EnergySchedules
+from mango_library.negotiation.core import NegotiationParticipant, NegotiationStarterRole, Negotiation
+
+logger = logging.getLogger(__name__)
+# logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.DEBUG)
+
+start_time = time.time()
+global_start_time = time.time()
+printarray = [
+    "-start_values",
+    "start _decide",
+    "-power_open_schedule",
+    "-open_schedule",
+    "-"
+    "Calculate the schedules",
+    "-pow_to_take_over_conversion",
+    "-testpow_to_take_over_conversion",
+]
+pd.set_option('display.width', None)
+pd.set_option('display.max_rows', 10)
+pd.options.display.float_format = '{:,.0f}'.format
+pd.set_option('display.colheader_justify', 'center')
+
+
+def get_time():
+    global start_time
+    global global_start_time
+    time_diff = time.time() - start_time
+    # print(f" - g: {format(time.time() - global_start_time, '.6f')}s - {format(time.time() - start_time, '.6f')}s - {text} -")
+    start_time = time.time()
+    return [time_diff, start_time - global_start_time]
+
+
+class colors:
+    RESET_ALL = "\033[0m"
+
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
+    UNDERLINED = "\033[4m"
+    BLINK = "\033[5m"
+    REVERSE = "\033[7m"
+    HIDDEN = "\033[8m"
+
+    RESET_BOLD = "\033[21m"
+    RESET_DIM = "\033[22m"
+    RESET_UNDERLINED = "\033[24m"
+    RESET_BLINK = "\033[25m"
+    RESET_REVERSE = "\033[27m"
+    RESET_HIDDEN = "\033[28m"
+
+    DEFAULT = "\033[39m"
+    BLACK = "\033[30m"
+    RED = "\033[31m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    BLUE = "\033[34m"
+    MAGENTA = "\033[35m"
+    CYAN = "\033[36m"
+    LIGHT_GRAY = "\033[37m"
+    DARK_GRAY = "\033[90m"
+    LIGHT_RED = "\033[91m"
+    LIGHT_GREEN = "\033[92m"
+    LIGHT_YELLOW = "\033[93m"
+    LIGHT_BLUE = "\033[94m"
+    LIGHT_MAGENTA = "\033[95m"
+    LIGHT_CYAN = "\033[96m"
+    WHITE = "\033[97m"
+
+    BACKGROUND_DEFAULT = "\033[49m"
+    BACKGROUND_BLACK = "\033[40m"
+    BACKGROUND_RED = "\033[41m"
+    BACKGROUND_GREEN = "\033[42m"
+    BACKGROUND_YELLOW = "\033[43m"
+    BACKGROUND_BLUE = "\033[44m"
+    BACKGROUND_MAGENTA = "\033[45m"
+    BACKGROUND_CYAN = "\033[46m"
+    BACKGROUND_LIGHT_GRAY = "\033[47m"
+    BACKGROUND_DARK_GRAY = "\033[100m"
+    BACKGROUND_LIGHT_RED = "\033[101m"
+    BACKGROUND_LIGHT_GREEN = "\033[102m"
+    BACKGROUND_LIGHT_YELLOW = "\033[103m"
+    BACKGROUND_LIGHT_BLUE = "\033[104m"
+    BACKGROUND_LIGHT_MAGENTA = "\033[105m"
+    BACKGROUND_LIGHT_CYAN = "\033[106m"
+    BACKGROUND_WHITE = "\033[107m"
+
+
+def test_print(param):
+    if any([item == param for item in printarray]):
+        return True
+    elif any([item == "-" + param for item in printarray]):
+        return False
+    else:
+        print(f'{colors.BACKGROUND_RED}test_print("{colors.BOLD}{param}{colors.RESET_ALL}{colors.BACKGROUND_RED}"){colors.RESET_ALL}')
+        return False
 
 
 @json_serializable
@@ -48,8 +146,9 @@ class CohdaNegotiationStarterRole(NegotiationStarterRole):
             lambda assignment:
             CohdaMessage(WorkingMemory(target_params=target_params, system_config=SystemConfig({}),
                                        solution_candidate=SolutionCandidate(
-                                           agent_id=assignment.part_id, schedules={}, perf=float('-inf')
-                                       ))),
+                                           agent_id=assignment.part_id,
+                                           schedules={},
+                                           perf=float('-inf')))),
             coalition_model_matcher=coalition_model_matcher, coalition_uuid=coalition_uuid
         )
 
@@ -58,27 +157,53 @@ class COHDA:
     """COHDA-decider
     """
 
-    def __init__(self, schedule_provider, is_local_acceptable, part_id: str, perf_func=None):
-        self._schedule_provider = schedule_provider
+    def __init__(self, schedule_provider, is_local_acceptable, part_id: str, value_weights, open_value_weights, perf_func=None):
+        self._schedule_provider = [EnergySchedules(dict_schedules={'power': np.array(schedule), 'heat': np.array(schedule) * 0}) for schedule in schedule_provider]
+        print(part_id, self._schedule_provider)
         self._is_local_acceptable = is_local_acceptable
         self._memory = WorkingMemory(None, SystemConfig({}), SolutionCandidate(part_id, {}, float('-inf')))
         self._counter = 0
         self._part_id = part_id
+        self._value_weights = value_weights
+        self._open_value_weights = open_value_weights
+        """ for print """
+        self._last = "String for printing"
+        """ for print """
         if perf_func is None:
             self._perf_func = self.deviation_to_target_schedule
         else:
             self._perf_func = perf_func
 
+    def print_color(self, text, color=colors.RESET_ALL):
+        print(colors.RESET_ALL, end="")
+        print(colors.BOLD, end="")
+        print(color, end="")
+        if color == colors.RESET_ALL:
+            print(f"agent{self._part_id}: {text}")
+        else:
+            time_diffs = get_time()
+            print(f"agent{self._part_id}: {text} - {format(time_diffs[0] * 1000, '.3f')}ms - {format(time_diffs[1], '.6f')}s")
+        print(colors.RESET_ALL, end="")
+
     @staticmethod
-    def deviation_to_target_schedule(cluster_schedule: np.array, target_parameters):
-        if cluster_schedule.size == 0:
-            return float('-inf')
+    def deviation_to_target_schedule(cluster_schedule: SolutionCandidate, target_parameters, value_weights):
+        """
+        EnergySchedules(target_parameters) - EnergySchedules(cluster_schedule) = Dict
+        """
+        # TODO Add the use of np.array(weights)
         target_schedule, weights = target_parameters
-        sum_cs = cluster_schedule.sum(axis=0)  # sum for each interval
-        diff = np.abs(np.array(target_schedule) - sum_cs)  # deviation to the target schedule
-        w_diff = diff * np.array(weights)  # multiply with weight vector
-        result = -np.sum(w_diff)
-        return float(result)
+        target_schedule = EnergySchedules(dict_schedules=target_schedule)
+        for agent_id in cluster_schedule.schedules:
+            target_schedule = target_schedule - cluster_schedule.schedules[agent_id]
+        # TODO Can the cluster_schedule be empty? And is that important for the calculation?
+        # if cluster_schedule.size == 0:
+        #     return float('-inf')
+        target_schedule_sum = target_schedule.sum()
+        """ Add the penaltys to the perf """
+        result = 0
+        for dict_key in target_schedule_sum.keys():
+            result += np.sum(target_schedule_sum[dict_key] * value_weights[dict_key + '_penalty'])
+        return result
 
     def handle_cohda_msgs(self, messages: List[CohdaMessage]) -> Optional[CohdaMessage]:
         """
@@ -118,8 +243,7 @@ class COHDA:
                 if self._part_id not in self._memory.system_config.schedule_choices:
                     # if you have not yet selected any schedule in the sysconfig, choose any to start with
                     schedule_choices = self._memory.system_config.schedule_choices
-                    schedule_choices[self._part_id] = ScheduleSelection(
-                        np.array(self._schedule_provider()[0]), self._counter + 1)
+                    schedule_choices[self._part_id] = ScheduleSelection(self._schedule_provider[0], self._counter + 1)
                     self._counter += 1
                     # we need to create a new class of Systemconfig so the updates are
                     # recognized in handle_cohda_msgs()
@@ -131,12 +255,13 @@ class COHDA:
                 if self._part_id not in self._memory.solution_candidate.schedules:
                     # if you have not yet selected any schedule in the sysconfig, choose any to start with
                     schedules = self._memory.solution_candidate.schedules
-                    schedules[self._part_id] = self._schedule_provider()[0]
+                    schedules[self._part_id] = self._schedule_provider[0]
                     # we need to create a new class of SolutionCandidate so the updates are
                     # recognized in handle_cohda_msgs()
                     current_candidate = SolutionCandidate(agent_id=self._part_id, schedules=schedules, perf=None)
-                    current_candidate.perf = self._perf_func(current_candidate.cluster_schedule,
-                                                             self._memory.target_params)
+                    # print("270: current_candidate.cluster_schedule", current_candidate)
+                    current_candidate.perf = self._perf_func(current_candidate,
+                                                             self._memory.target_params, self._value_weights)
                 else:
                     current_candidate = self._memory.solution_candidate
 
@@ -146,10 +271,11 @@ class COHDA:
             # Merge new information into current_sysconfig and current_candidate
             current_sysconfig = self._merge_sysconfigs(sysconfig_i=current_sysconfig, sysconfig_j=new_sysconf)
             current_candidate = self._merge_candidates(candidate_i=current_candidate,
-                                                        candidate_j=new_candidate,
-                                                        agent_id=self._part_id,
-                                                        perf_func=self._perf_func,
-                                                        target_params=self._memory.target_params)
+                                                       candidate_j=new_candidate,
+                                                       agent_id=self._part_id,
+                                                       perf_func=self._perf_func,
+                                                       target_params=self._memory.target_params,
+                                                       value_weights=self._value_weights)
 
         return current_sysconfig, current_candidate
 
@@ -161,31 +287,46 @@ class COHDA:
         :return: Tuple of SystemConfig, SolutionCandidate. Unchanged to parameters if no new SolutionCandidate was
         found. Else it consists of the new SolutionCandidate and an updated SystemConfig
         """
-        possible_schedules = self._schedule_provider()
+
+        if test_print("start _decide"):
+            self.print_color("start _decide", colors.BACKGROUND_LIGHT_MAGENTA)
+
+        possible_schedules = self._schedule_provider
+        # print("295: possible_schedules", possible_schedules, type(possible_schedules))
         current_best_candidate = candidate
+        # print("297: candidate", candidate)
+        # print("298: sysconfig", sysconfig)
         for schedule in possible_schedules:
             if self._is_local_acceptable(schedule):
                 # create new candidate from sysconfig
+                # print("schedule", schedule)
                 new_candidate = SolutionCandidate.create_from_updated_sysconf(
-                    agent_id=self._part_id, sysconfig=sysconfig, new_schedule=np.array(schedule)
+                    agent_id=self._part_id, sysconfig=sysconfig, new_energy_schedule=schedule
                 )
-                new_performance = self._perf_func(new_candidate.cluster_schedule, self._memory.target_params)
+                # print("313: new_candidate", type(new_candidate), new_candidate)
+                # print("313: current_best_candidate", type(current_best_candidate), current_best_candidate)
+                new_candidate.perf = self._perf_func(new_candidate, self._memory.target_params, self._value_weights)
+                current_best_candidate.perf = self._perf_func(current_best_candidate, self._memory.target_params, self._value_weights)
+                # TODO Add the penaltys to the perf in self._perf_func() needs self._value_weights
                 # only keep new candidates that perform better than the current one
-                if new_performance > current_best_candidate.perf:
-                    new_candidate.perf = new_performance
+                if new_candidate.perf > current_best_candidate.perf:
                     current_best_candidate = new_candidate
 
         schedule_in_candidate = current_best_candidate.schedules.get(self._part_id, None)
         schedule_choice_in_sysconfig = sysconfig.schedule_choices.get(self._part_id, None)
 
         if schedule_choice_in_sysconfig is None or \
-                not np.array_equal(schedule_in_candidate, schedule_choice_in_sysconfig.schedule):
+                not np.array_equal(schedule_in_candidate, schedule_choice_in_sysconfig.energy_schedules):
             # update Sysconfig if your schedule in the current sysconf is different to the one in the candidate
             sysconfig.schedule_choices[self._part_id] = ScheduleSelection(
-                schedule=schedule_in_candidate, counter=self._counter + 1)
+                energy_schedules=schedule_in_candidate, counter=self._counter + 1)
             # update counter
             self._counter += 1
 
+        # print("326: sysconfig", sysconfig)
+        # print("327: current_best_candidate", current_best_candidate)
+        if test_print("start _decide"):
+            self.print_color("end _decide", colors.BACKGROUND_LIGHT_MAGENTA)
         return sysconfig, current_best_candidate
 
     def _act(self, new_sysconfig: SystemConfig, new_candidate: SolutionCandidate) -> CohdaMessage:
@@ -240,7 +381,7 @@ class COHDA:
 
     @staticmethod
     def _merge_candidates(candidate_i: SolutionCandidate, candidate_j: SolutionCandidate,
-                          agent_id: str, perf_func: Callable, target_params):
+                          agent_id: str, perf_func: Callable, target_params, value_weights):
         """
         Returns a merged Candidate. If the candidate_i remains unchanged, the same instance of candidate_i is
         returned, otherwise a new object is created with agent_id as candidate.agent_id
@@ -280,7 +421,7 @@ class COHDA:
 
             # create new SolutionCandidate
             candidate = SolutionCandidate(agent_id=agent_id, schedules=new_schedules, perf=None)
-            candidate.perf = perf_func(candidate.cluster_schedule, target_params)
+            candidate.perf = perf_func(candidate, target_params, value_weights)
 
         return candidate
 
@@ -289,10 +430,12 @@ class COHDARole(NegotiationParticipant):
     """Negotiation role for COHDA.
     """
 
-    def __init__(self, schedules_provider, local_acceptable_func=None, check_inbox_interval: float = 0.1):
+    def __init__(self, schedules_provider, value_weights, open_value_weights, local_acceptable_func=None, check_inbox_interval: float = 0.1):
         """
         Init of COHDARole
         :param schedules_provider: Function that takes not arguments and returns a list of schedules
+        :param value_weights: own value_weights for calculation
+        :param open_value_weights: own open_value_weights visible for other agents
         :param local_acceptable_func: Function that takes a schedule as input and returns a boolean indicating,
         if the schedule is locally acceptable or not. Defaults to lambda x: True
         :param check_inbox_interval: Duration of buffering the cohda messages [s]
@@ -300,6 +443,8 @@ class COHDARole(NegotiationParticipant):
         super().__init__()
 
         self._schedules_provider = schedules_provider
+        self._value_weights = value_weights
+        self._open_value_weights = open_value_weights
         if local_acceptable_func is None:
             self._is_local_acceptable = lambda x: True
         else:
@@ -315,9 +460,18 @@ class COHDARole(NegotiationParticipant):
         :param part_id: participant id
         :return: COHDA object
         """
+        if test_print("start_values"):
+            print(f"{part_id}: {self._schedules_provider}", end=" ")
+            print(f"kwh: {float(self._value_weights['power_kwh_price'])}€", end=" ")
+            print(f"convert: {self._value_weights['convert_amount']}x", end=" ")
+            print(f"{float(self._value_weights['converted_price'])}€", end=" ")
+            print()
         return COHDA(schedule_provider=self._schedules_provider,
                      is_local_acceptable=self._is_local_acceptable,
-                     part_id=part_id)
+                     part_id=part_id,
+                     value_weights=self._value_weights,
+                     open_value_weights=self._open_value_weights,
+                     )
 
     async def on_stop(self) -> None:
         """

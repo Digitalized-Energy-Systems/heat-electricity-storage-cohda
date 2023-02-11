@@ -2,10 +2,90 @@
 Module that holds the data classes necessary for a COHDA negotiation
 """
 
-from typing import Dict, Callable, Optional
-import numpy as np
+from typing import Dict, Optional
 
+import numpy as np
 from mango.messages.codecs import json_serializable
+
+
+@json_serializable
+class EnergySchedules:
+    """
+    Model for the schedules in solution candidates in COHDA.
+    """
+
+    def __init__(self, dict_schedules: Dict[str, np.array]) -> None:
+        """One dictionary for all energy schedules
+
+        :return: None
+        """
+        self._dict_schedules = dict_schedules
+
+    def __str__(self):
+        str = ""
+        for dict_key in self.dict_schedules.keys():
+            str += f'\'{dict_key}\': {list(self.dict_schedules[dict_key])}\t'
+        return str
+
+    def __eq__(self, o: object) -> bool:
+        if isinstance(o, EnergySchedules):
+            if len(self.dict_schedules.keys()) == len(o.dict_schedules.keys()):
+                for dict_key in self.dict_schedules.keys():
+                    if dict_key in o.dict_schedules:
+                        if not np.array_equal(self.dict_schedules[dict_key], o.dict_schedules[dict_key]):
+                            return False
+                return True
+        return False
+
+    def __add__(self, o: object):
+        if isinstance(o, EnergySchedules):
+            if len(self.dict_schedules.keys()) == len(o.dict_schedules.keys()):
+                dict_schedules = {}
+                for dict_key in self.dict_schedules.keys():
+                    if dict_key in o.dict_schedules.keys():
+                        dict_schedules[dict_key] = self.dict_schedules[dict_key] + o.dict_schedules[dict_key]
+                    else:
+                        # TODO throw Exception(__add__1)?
+                        return self
+                return EnergySchedules(dict_schedules=dict_schedules)
+        # TODO throw Exception(__add__2)?
+        return self
+
+    def __sub__(self, o: object):
+        if isinstance(o, EnergySchedules):
+            if len(self.dict_schedules.keys()) == len(o.dict_schedules.keys()):
+                dict_schedules = {}
+                for dict_key in self.dict_schedules.keys():
+                    if dict_key in o.dict_schedules.keys():
+                        dict_schedules[dict_key] = self.dict_schedules[dict_key] - o.dict_schedules[dict_key]
+                    else:
+                        # TODO throw Exception(__sub__1)?
+                        return self
+                return EnergySchedules(dict_schedules=dict_schedules)
+        # TODO throw Exception(__sub__2)?
+        return self
+
+    def sum(self):
+        result = {}
+        for dict_key in self.dict_schedules.keys():
+            result[dict_key] = np.sum(self.dict_schedules[dict_key])
+        return result
+
+    @property
+    def dict_schedules(self) -> Dict[str, np.array]:
+        """Return the energy schedules
+
+        :return: dict of the energy schedules
+        """
+        return self._dict_schedules
+
+    @dict_schedules.setter
+    def dict_schedules(self, new_dict_schedules: Dict[str, np.array]):
+        """Set the energy schedule for the agent
+
+        :param new_dict_schedules: new_dict_schedules
+        """
+        self._dict_schedules = new_dict_schedules
 
 
 @json_serializable
@@ -14,7 +94,7 @@ class SolutionCandidate:
     Model for a solution candidate in COHDA.
     """
 
-    def __init__(self, agent_id: str, schedules: Dict[str, np.array], perf: Optional[float]) -> None:
+    def __init__(self, agent_id: str, schedules: Dict[str, EnergySchedules], perf: Optional[float]) -> None:
         self._agent_id = agent_id
         self._schedules = schedules
         self._perf = perf
@@ -48,10 +128,10 @@ class SolutionCandidate:
         self._agent_id = new_id
 
     @property
-    def schedules(self) -> Dict[str, np.array]:
-        """Return the candidate schedule map (part_id -> schedule)
+    def schedules(self) -> Dict[str, EnergySchedules]:
+        """Return the candidates EnergySchedules (part_id -> Dict[str, EnergySchedules])
 
-        :return: map part_id -> schedule
+        :return: map part_id -> Dict[str, EnergySchedules]
         """
         return self._schedules
 
@@ -72,26 +152,35 @@ class SolutionCandidate:
         self._perf = new_perf
 
     @property
-    def cluster_schedule(self) -> np.array:
+    def cluster_schedule(self) -> EnergySchedules:
         """
-        Return the candidate as cluster schedule
-        :return: cluster_schedule as np.array
+        Return the candidates cluster schedule
+        :return: cluster_schedule as EnergySchedules
         """
-        return np.array(list(self.schedules.values()))
+        cluster_schedule = EnergySchedules(dict_schedules={})
+        for agent_energy_schedules in list(self.schedules.values()):
+            for energie_schedule_key in list(agent_energy_schedules.dict_schedules.keys()):
+                dict_schedules = cluster_schedule.dict_schedules
+                if energie_schedule_key in dict_schedules:
+                    dict_schedules[energie_schedule_key] = np.sum([dict_schedules[energie_schedule_key], agent_energy_schedules[energie_schedule_key]], axis=0)
+                else:
+                    dict_schedules[energie_schedule_key] = agent_energy_schedules.dict_schedules[energie_schedule_key]
+                cluster_schedule.dict_schedules = dict_schedules
+        return cluster_schedule
 
     @classmethod
-    def create_from_updated_sysconf(cls, sysconfig, agent_id: str, new_schedule: np.array):
+    def create_from_updated_sysconf(cls, sysconfig, agent_id: str, new_energy_schedule: EnergySchedules):
         """
         Creates a Candidate based on the cluster schedule of a SystemConfiguration,
         which is changed only for *agent_id* towards *new_schedule*
         :param sysconfig: the systemconfig the candidate should be based on
         :param agent_id: the agent_id which schedule should be changed. It is also the agent_id that is the creator of
         the new Candidate
-        :param new_schedule: the new schedule for *agent_id*
+        :param new_energy_schedule: the new EnergySchedules for *agent_id*
         :return: A new SolutionCandidate object (without calculated performance!)
         """
-        schedule_dict = {k: v.schedule for k, v in sysconfig.schedule_choices.items()}
-        schedule_dict[agent_id] = new_schedule
+        schedule_dict = {k: v.energy_schedules for k, v in sysconfig.schedule_choices.items()}
+        schedule_dict[agent_id] = new_energy_schedule
         return cls(agent_id=agent_id, schedules=schedule_dict, perf=None)
 
 
@@ -101,13 +190,14 @@ class ScheduleSelection:
     A selection of a specific schedule
     """
 
-    def __init__(self, schedule: np.array, counter: int) -> None:
-        self._schedule = schedule
+    def __init__(self, energy_schedules: EnergySchedules, counter: int) -> None:
+        self._energy_schedules = energy_schedules
         self._counter = counter
 
     def __eq__(self, o: object) -> bool:
-        return isinstance(o, ScheduleSelection) and self.counter == o.counter \
-               and np.array_equal(self.schedule, o.schedule)
+        return isinstance(o, ScheduleSelection) \
+            and self.counter == o.counter \
+            and self.energy_schedules == o.energy_schedules
 
     @property
     def counter(self) -> int:
@@ -118,12 +208,12 @@ class ScheduleSelection:
         return self._counter
 
     @property
-    def schedule(self) -> np.array:
+    def energy_schedules(self) -> EnergySchedules:
         """
-        The schedule as np.array
-        :return: schedule
+        The schedules as EnergySchedules
+        :return: energy_schedules
         """
-        return self._schedule
+        return self._energy_schedules
 
 
 @json_serializable
@@ -152,7 +242,7 @@ class SystemConfig:
         Return the cluster schedule of the current sysconfig
         :return: the cluster schedule as np.array
         """
-        return np.array([selection.schedule for selection in self.schedule_choices.values()])
+        return np.array([selection.energy_schedules for selection in self.schedule_choices.values()])
 
 
 @json_serializable

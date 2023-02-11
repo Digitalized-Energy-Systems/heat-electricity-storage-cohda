@@ -41,9 +41,9 @@ def test_perceive(old_sysconfig: SystemConfig, old_candidate: SolutionCandidate,
     new_sysconfig, new_candidate = cohda._perceive(messages=messages)
     for part_id in new_sysconfig.schedule_choices:
         assert np.array_equal(
-            new_sysconfig.schedule_choices[part_id].schedule, expected_sysconfig.schedule_choices[part_id].schedule), \
-            f'part_id: {part_id}, schedules: {new_sysconfig.schedule_choices[part_id].schedule},' \
-            f'{expected_sysconfig.schedule_choices[part_id].schedule}'
+            new_sysconfig.schedule_choices[part_id].energy_schedules, expected_sysconfig.schedule_choices[part_id].energy_schedules), \
+            f'part_id: {part_id}, schedules: {new_sysconfig.schedule_choices[part_id].energy_schedules},' \
+            f'{expected_sysconfig.schedule_choices[part_id].energy_schedules}'
         assert new_sysconfig.schedule_choices[part_id].counter == expected_sysconfig.schedule_choices[part_id].counter
 
         assert np.array_equal(new_candidate.schedules[part_id], expected_candidate.schedules[part_id])
@@ -62,9 +62,9 @@ def test_decide(old_sysconfig: SystemConfig, old_candidate: SolutionCandidate, c
     new_sysconfig, new_candidate = cohda_object._decide(sysconfig=old_sysconfig, candidate=old_candidate)
     for part_id in new_sysconfig.schedule_choices:
         assert np.array_equal(
-            new_sysconfig.schedule_choices[part_id].schedule, expected_sysconfig.schedule_choices[part_id].schedule), \
-            f'part_id: {part_id}, schedules: {new_sysconfig.schedule_choices[part_id].schedule},' \
-            f'{expected_sysconfig.schedule_choices[part_id].schedule}'
+            new_sysconfig.schedule_choices[part_id].energy_schedules, expected_sysconfig.schedule_choices[part_id].energy_schedules), \
+            f'part_id: {part_id}, schedules: {new_sysconfig.schedule_choices[part_id].energy_schedules},' \
+            f'{expected_sysconfig.schedule_choices[part_id].energy_schedules}'
         assert new_sysconfig.schedule_choices[part_id].counter == expected_sysconfig.schedule_choices[part_id].counter
 
         assert np.array_equal(new_candidate.schedules[part_id], expected_candidate.schedules[part_id])
