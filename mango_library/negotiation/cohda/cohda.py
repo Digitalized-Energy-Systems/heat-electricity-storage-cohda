@@ -24,9 +24,7 @@ global_start_time = time.time()
 printarray = [
     "-start_values",
     "start _decide",
-    "-power_open_schedule",
-    "-open_schedule",
-    "-"
+    "open_schedule",
     "Calculate the schedules",
     "-pow_to_take_over_conversion",
     "-testpow_to_take_over_conversion",
@@ -159,11 +157,15 @@ class COHDA:
 
     def __init__(self, schedule_provider, is_local_acceptable, part_id: str, value_weights, open_value_weights, perf_func=None):
         self._schedule_provider = [EnergySchedules(dict_schedules={'power': np.array(schedule), 'heat': np.array(schedule) * 0}) for schedule in schedule_provider]
-        print(part_id, self._schedule_provider)
+        print("COHDA __init__")
+        for schedule in self._schedule_provider:
+            print(part_id, schedule)
         self._is_local_acceptable = is_local_acceptable
         self._memory = WorkingMemory(None, SystemConfig({}), SolutionCandidate(part_id, {}, float('-inf')))
         self._counter = 0
         self._part_id = part_id
+        self._convert_amount = np.array([value_weights['convert_amount']] * len(schedule_provider[0]))
+        print("self._convert_amount", self._convert_amount)
         self._value_weights = value_weights
         self._open_value_weights = open_value_weights
         """ for print """
@@ -291,11 +293,42 @@ class COHDA:
         if test_print("start _decide"):
             self.print_color("start _decide", colors.BACKGROUND_LIGHT_MAGENTA)
 
+        """ calc power_open_schedule """
+        # TODO use the weights in target_params
+        target_schedule = EnergySchedules(dict_schedules=self._memory.target_params[0])
+        open_schedule = target_schedule
+        for candidate_schedule_key in candidate.schedules.keys():
+            open_schedule -= candidate.schedules[candidate_schedule_key]
+        if test_print("open_schedule"):
+            self.print_color(f"{colors.BOLD}ZIEL:{colors.RESET_ALL} {target_schedule}")
+            self.print_color(f"{colors.BOLD}open_schedule{colors.RESET_ALL} {open_schedule}")
+            self.print_color(f"{colors.BOLD}self._open_value_weights{colors.RESET_ALL} {self._open_value_weights}")
+            self.print_color(f"{colors.BOLD}sysconfig{colors.RESET_ALL} {sysconfig}")
+            self.print_color(f"{colors.BOLD}candidate{colors.RESET_ALL} {candidate}")
+            self.print_color(f"{colors.BOLD}convert_amount{colors.RESET_ALL} {self._convert_amount}")
+
         possible_schedules = self._schedule_provider
-        # print("295: possible_schedules", possible_schedules, type(possible_schedules))
         current_best_candidate = candidate
-        # print("297: candidate", candidate)
-        # print("298: sysconfig", sysconfig)
+        # current_best_candidate.perf = float('-inf')  # TODO good?
+
+        # TODO If equal: look for more expensive energy conversions to replace
+        # print(f"{len(sysconfig.schedule_choices)} len(sysconfig.schedule_choices) {sysconfig.schedule_choices}")
+        # print(f"{len(self._open_value_weights)} self._open_value_weights {self._open_value_weights}")
+        take_over_conversion = self._convert_amount * 0
+        """ when each agent has made an offer and open convert_amount is available """
+        # TODO sort other agent values and use the values for the next calculation
+        # if len(sysconfig.schedule_choices) == len(self._open_value_weights) and \
+        #         np.sum(self._convert_amount) > np.sum(current_best_candidate.conversions.get(self._part_id)):
+        #     own_price = self._own_value_weights['power_kwh_price'] - self._own_value_weights["converted_price"]
+        #     for i in sysconfig.schedule_choices:
+        #         price = self._open_value_weights[int(i)]['power_kwh_price'] \
+        #                 - self._open_value_weights[int(i)]["converted_price"]
+        #         if price > own_price and np.sum(sysconfig.conversion_choices.get(i).conversion) > 0:
+        #             """ try to adopt more expensive conversions """
+        #             take_over_conversion += sysconfig.conversion_choices.get(i).conversion
+        #             # print(i, sysconfig.schedule_choices.get(i).schedule, sysconfig.conversion_choices.get(i).conversion)
+        #             # print(f"{self._open_value_weights[int(i)]}")
+
         for schedule in possible_schedules:
             if self._is_local_acceptable(schedule):
                 # create new candidate from sysconfig

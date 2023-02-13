@@ -22,10 +22,10 @@ class EnergySchedules:
         self._dict_schedules = dict_schedules
 
     def __str__(self):
-        str = ""
+        string = ""
         for dict_key in self.dict_schedules.keys():
-            str += f'\'{dict_key}\': {list(self.dict_schedules[dict_key])}\t'
-        return str
+            string += f'\'{dict_key}\': {list(self.dict_schedules[dict_key])}\t'
+        return string
 
     def __eq__(self, o: object) -> bool:
         if isinstance(o, EnergySchedules):
@@ -111,6 +111,14 @@ class SolutionCandidate:
                     schedules_equal = False
         return self.agent_id == o.agent_id and self.perf == o.perf and schedules_equal
 
+    def __str__(self):
+        string = "SolutionCandidate\nperf: " + str(self.perf)
+        for schedule_keys in self.schedules.keys():
+            string += "\n"
+            string += schedule_keys
+            string += " " + self.schedules[schedule_keys].__str__()
+        return string
+
     @property
     def agent_id(self) -> str:
         """Return the agent id
@@ -194,10 +202,14 @@ class ScheduleSelection:
         self._energy_schedules = energy_schedules
         self._counter = counter
 
+
     def __eq__(self, o: object) -> bool:
         return isinstance(o, ScheduleSelection) \
             and self.counter == o.counter \
             and self.energy_schedules == o.energy_schedules
+
+    def __str__(self):
+        return "ScheduleSelection: " + str(self.energy_schedules)
 
     @property
     def counter(self) -> int:
@@ -227,6 +239,14 @@ class SystemConfig:
 
     def __eq__(self, o: object) -> bool:
         return isinstance(o, SystemConfig) and self._schedule_choices == o._schedule_choices
+
+    def __str__(self):
+        string = "SystemConfig"
+        for schedule_keys in self.schedule_choices.keys():
+            string += "\n"
+            string += schedule_keys
+            string += " " + self.schedule_choices[schedule_keys].__str__()
+        return string
 
     @property
     def schedule_choices(self) -> Dict[str, ScheduleSelection]:
