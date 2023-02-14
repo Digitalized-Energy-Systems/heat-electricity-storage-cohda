@@ -2,7 +2,7 @@
 Module that holds the data classes necessary for a COHDA negotiation
 """
 
-from typing import Dict, Optional
+from typing import Dict
 
 import numpy as np
 from mango.messages.codecs import json_serializable
@@ -14,17 +14,19 @@ class EnergySchedules:
     Model for the schedules in solution candidates in COHDA.
     """
 
-    def __init__(self, dict_schedules: Dict[str, np.array]) -> None:
+    def __init__(self, dict_schedules: Dict[str, np.array], value_weights, perf=None) -> None:
         """One dictionary for all energy schedules
 
         :return: None
         """
         self._dict_schedules = dict_schedules
+        self._value_weights = value_weights
+        self._perf = perf
 
     def __str__(self):
-        string = ""
+        string = "EnergySchedules perf: " + str(self.perf) + "\n"
         for dict_key in self.dict_schedules.keys():
-            string += f'\'{dict_key}\': {list(self.dict_schedules[dict_key])}\t'
+            string += f'\'{dict_key}\': {list(self.dict_schedules[dict_key])}\n'
         return string
 
     def __eq__(self, o: object) -> bool:
@@ -38,30 +40,22 @@ class EnergySchedules:
         return False
 
     def __add__(self, o: object):
+        # TODO Alle Keys übernehmen und nicht nur die gleichen
         if isinstance(o, EnergySchedules):
-            if len(self.dict_schedules.keys()) == len(o.dict_schedules.keys()):
-                dict_schedules = {}
-                for dict_key in self.dict_schedules.keys():
-                    if dict_key in o.dict_schedules.keys():
-                        dict_schedules[dict_key] = self.dict_schedules[dict_key] + o.dict_schedules[dict_key]
-                    else:
-                        # TODO throw Exception(__add__1)?
-                        return self
-                return EnergySchedules(dict_schedules=dict_schedules)
+            dict_schedules = self.dict_schedules.copy()
+            for dict_key in o.dict_schedules.keys():
+                dict_schedules[dict_key] += o.dict_schedules[dict_key]
+            return EnergySchedules(dict_schedules=dict_schedules, value_weights=None, perf=self.perf + o.perf)
         # TODO throw Exception(__add__2)?
         return self
 
     def __sub__(self, o: object):
         if isinstance(o, EnergySchedules):
-            if len(self.dict_schedules.keys()) == len(o.dict_schedules.keys()):
-                dict_schedules = {}
-                for dict_key in self.dict_schedules.keys():
-                    if dict_key in o.dict_schedules.keys():
-                        dict_schedules[dict_key] = self.dict_schedules[dict_key] - o.dict_schedules[dict_key]
-                    else:
-                        # TODO throw Exception(__sub__1)?
-                        return self
-                return EnergySchedules(dict_schedules=dict_schedules)
+            dict_schedules = {}
+            for dict_key in self.dict_schedules.keys():
+                if dict_key in o.dict_schedules.keys():
+                    dict_schedules[dict_key] = self.dict_schedules[dict_key] - o.dict_schedules[dict_key]
+            return EnergySchedules(dict_schedules=dict_schedules, value_weights=None, perf=self.perf - o.perf)
         # TODO throw Exception(__sub__2)?
         return self
 
@@ -87,6 +81,27 @@ class EnergySchedules:
         """
         self._dict_schedules = new_dict_schedules
 
+    @property
+    def perf(self) -> float:
+        """Return the performance of the energy schedules
+
+        :return: float of the energy schedules performance
+        """
+        if self._perf is None and self._value_weights:
+            result = 0
+            for dict_key in self.dict_schedules.keys():
+                result += np.sum(self.dict_schedules[dict_key] * self._value_weights[dict_key + '_penalty'])
+            return result
+        return self._perf
+
+    @property
+    def value_weights(self) -> float:
+        """Return the value_weights of the energy schedules
+
+        :return: float of the energy schedules value_weights
+        """
+        return self._value_weights
+
 
 @json_serializable
 class SolutionCandidate:
@@ -94,10 +109,10 @@ class SolutionCandidate:
     Model for a solution candidate in COHDA.
     """
 
-    def __init__(self, agent_id: str, schedules: Dict[str, EnergySchedules], perf: Optional[float]) -> None:
+    def __init__(self, agent_id: str, schedules: Dict[str, EnergySchedules]) -> None:
         self._agent_id = agent_id
         self._schedules = schedules
-        self._perf = perf
+        self._perf = None
 
     def __eq__(self, o: object) -> bool:
         if not isinstance(o, SolutionCandidate):
@@ -112,7 +127,7 @@ class SolutionCandidate:
         return self.agent_id == o.agent_id and self.perf == o.perf and schedules_equal
 
     def __str__(self):
-        string = "SolutionCandidate\nperf: " + str(self.perf)
+        string = "SolutionCandidate perf: " + str(self.perf)
         for schedule_keys in self.schedules.keys():
             string += "\n"
             string += schedule_keys
@@ -149,15 +164,12 @@ class SolutionCandidate:
         Returns the performance value of the candidate
         :return:
         """
+        if not self._perf:
+            perf = 0
+            for key in self._schedules.keys():
+                perf += self._schedules[key].perf
+            self._perf = perf
         return self._perf
-
-    @perf.setter
-    def perf(self, new_perf: float):
-        """
-        Sets the performance of the candidate
-        :param new_perf: The new performance
-        """
-        self._perf = new_perf
 
     @property
     def cluster_schedule(self) -> EnergySchedules:
@@ -189,7 +201,7 @@ class SolutionCandidate:
         """
         schedule_dict = {k: v.energy_schedules for k, v in sysconfig.schedule_choices.items()}
         schedule_dict[agent_id] = new_energy_schedule
-        return cls(agent_id=agent_id, schedules=schedule_dict, perf=None)
+        return cls(agent_id=agent_id, schedules=schedule_dict)
 
 
 @json_serializable

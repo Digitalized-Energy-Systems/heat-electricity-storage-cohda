@@ -24,7 +24,7 @@ global_start_time = time.time()
 printarray = [
     "-start_values",
     "start _decide",
-    "open_schedule",
+    "-open_schedule",
     "Calculate the schedules",
     "-pow_to_take_over_conversion",
     "-testpow_to_take_over_conversion",
@@ -145,8 +145,8 @@ class CohdaNegotiationStarterRole(NegotiationStarterRole):
             CohdaMessage(WorkingMemory(target_params=target_params, system_config=SystemConfig({}),
                                        solution_candidate=SolutionCandidate(
                                            agent_id=assignment.part_id,
-                                           schedules={},
-                                           perf=float('-inf')))),
+                                           schedules={}
+                                       ))),
             coalition_model_matcher=coalition_model_matcher, coalition_uuid=coalition_uuid
         )
 
@@ -156,16 +156,12 @@ class COHDA:
     """
 
     def __init__(self, schedule_provider, is_local_acceptable, part_id: str, value_weights, open_value_weights, perf_func=None):
-        self._schedule_provider = [EnergySchedules(dict_schedules={'power': np.array(schedule), 'heat': np.array(schedule) * 0}) for schedule in schedule_provider]
-        print("COHDA __init__")
-        for schedule in self._schedule_provider:
-            print(part_id, schedule)
+        self._schedule_provider = [EnergySchedules(dict_schedules={'power': np.array(schedule), 'heat': np.array(schedule) * 0}, value_weights=value_weights) for schedule in schedule_provider]
         self._is_local_acceptable = is_local_acceptable
-        self._memory = WorkingMemory(None, SystemConfig({}), SolutionCandidate(part_id, {}, float('-inf')))
+        self._memory = WorkingMemory(None, SystemConfig({}), SolutionCandidate(part_id, {}))
         self._counter = 0
         self._part_id = part_id
         self._convert_amount = np.array([value_weights['convert_amount']] * len(schedule_provider[0]))
-        print("self._convert_amount", self._convert_amount)
         self._value_weights = value_weights
         self._open_value_weights = open_value_weights
         """ for print """
@@ -188,7 +184,7 @@ class COHDA:
         print(colors.RESET_ALL, end="")
 
     @staticmethod
-    def deviation_to_target_schedule(cluster_schedule: SolutionCandidate, target_parameters, value_weights):
+    def deviation_to_target_schedule(cluster_schedule: SolutionCandidate, target_parameters):
         """
         EnergySchedules(target_parameters) - EnergySchedules(cluster_schedule) = Dict
         """
@@ -200,12 +196,7 @@ class COHDA:
         # TODO Can the cluster_schedule be empty? And is that important for the calculation?
         # if cluster_schedule.size == 0:
         #     return float('-inf')
-        target_schedule_sum = target_schedule.sum()
-        """ Add the penaltys to the perf """
-        result = 0
-        for dict_key in target_schedule_sum.keys():
-            result += np.sum(target_schedule_sum[dict_key] * value_weights[dict_key + '_penalty'])
-        return result
+        return target_schedule.sum()
 
     def handle_cohda_msgs(self, messages: List[CohdaMessage]) -> Optional[CohdaMessage]:
         """
@@ -245,8 +236,8 @@ class COHDA:
                 if self._part_id not in self._memory.system_config.schedule_choices:
                     # if you have not yet selected any schedule in the sysconfig, choose any to start with
                     schedule_choices = self._memory.system_config.schedule_choices
-                    schedule_choices[self._part_id] = ScheduleSelection(self._schedule_provider[0], self._counter + 1)
                     self._counter += 1
+                    schedule_choices[self._part_id] = ScheduleSelection(self._schedule_provider[0], self._counter)
                     # we need to create a new class of Systemconfig so the updates are
                     # recognized in handle_cohda_msgs()
                     current_sysconfig = SystemConfig(schedule_choices=schedule_choices)
@@ -260,10 +251,10 @@ class COHDA:
                     schedules[self._part_id] = self._schedule_provider[0]
                     # we need to create a new class of SolutionCandidate so the updates are
                     # recognized in handle_cohda_msgs()
-                    current_candidate = SolutionCandidate(agent_id=self._part_id, schedules=schedules, perf=None)
+                    current_candidate = SolutionCandidate(agent_id=self._part_id, schedules=schedules)
                     # print("270: current_candidate.cluster_schedule", current_candidate)
-                    current_candidate.perf = self._perf_func(current_candidate,
-                                                             self._memory.target_params, self._value_weights)
+                    # current_candidate.perf = self._perf_func(current_candidate,
+                    #                                          self._memory.target_params, self._value_weights)
                 else:
                     current_candidate = self._memory.solution_candidate
 
@@ -271,7 +262,9 @@ class COHDA:
             new_candidate = message.working_memory.solution_candidate
 
             # Merge new information into current_sysconfig and current_candidate
+            # print(current_sysconfig)
             current_sysconfig = self._merge_sysconfigs(sysconfig_i=current_sysconfig, sysconfig_j=new_sysconf)
+            # print(current_sysconfig)
             current_candidate = self._merge_candidates(candidate_i=current_candidate,
                                                        candidate_j=new_candidate,
                                                        agent_id=self._part_id,
@@ -295,7 +288,7 @@ class COHDA:
 
         """ calc power_open_schedule """
         # TODO use the weights in target_params
-        target_schedule = EnergySchedules(dict_schedules=self._memory.target_params[0])
+        target_schedule = EnergySchedules(dict_schedules=self._memory.target_params[0], value_weights={'power_penalty': 0, 'heat_penalty': 0})
         open_schedule = target_schedule
         for candidate_schedule_key in candidate.schedules.keys():
             open_schedule -= candidate.schedules[candidate_schedule_key]
@@ -336,10 +329,8 @@ class COHDA:
                 new_candidate = SolutionCandidate.create_from_updated_sysconf(
                     agent_id=self._part_id, sysconfig=sysconfig, new_energy_schedule=schedule
                 )
-                # print("313: new_candidate", type(new_candidate), new_candidate)
-                # print("313: current_best_candidate", type(current_best_candidate), current_best_candidate)
-                new_candidate.perf = self._perf_func(new_candidate, self._memory.target_params, self._value_weights)
-                current_best_candidate.perf = self._perf_func(current_best_candidate, self._memory.target_params, self._value_weights)
+                # new_candidate.perf = self._perf_func(new_candidate, self._memory.target_params, self._value_weights)
+                # current_best_candidate.perf = self._perf_func(current_best_candidate, self._memory.target_params, self._value_weights)
                 # TODO Add the penaltys to the perf in self._perf_func() needs self._value_weights
                 # only keep new candidates that perform better than the current one
                 if new_candidate.perf > current_best_candidate.perf:
@@ -356,8 +347,6 @@ class COHDA:
             # update counter
             self._counter += 1
 
-        # print("326: sysconfig", sysconfig)
-        # print("327: current_best_candidate", current_best_candidate)
         if test_print("start _decide"):
             self.print_color("end _decide", colors.BACKGROUND_LIGHT_MAGENTA)
         return sysconfig, current_best_candidate
@@ -388,6 +377,16 @@ class COHDA:
         sysconfig_j_schedules: Dict[str, ScheduleSelection] = sysconfig_j.schedule_choices
         key_set_i = set(sysconfig_i_schedules.keys())
         key_set_j = set(sysconfig_j_schedules.keys())
+        # TODO Remove print
+        # print()
+        # print("sysconfig_i_schedules", end=": ")
+        # for key in key_set_i:
+        #     print(key + ":", sysconfig_i_schedules[key].counter, end=" - ")
+        # print()
+        # print("sysconfig_j_schedules", end=": ")
+        # for key in key_set_j:
+        #     print(key + ":", sysconfig_j_schedules[key].counter, end=" - ")
+        # print()
 
         new_sysconfig: Dict[str, ScheduleSelection] = {}
         modified = False
@@ -398,10 +397,12 @@ class COHDA:
                     (a not in key_set_j or sysconfig_i_schedules[a].counter >= sysconfig_j_schedules[a].counter):
                 # Use data of sysconfig_i
                 schedule_selection = sysconfig_i_schedules[a]
+                # print(a, sysconfig_i_schedules[a].counter, "key_set_i", schedule_selection)
             else:
                 # Use data of sysconfig_j
                 schedule_selection = sysconfig_j_schedules[a]
                 modified = True
+                # print(a, sysconfig_j_schedules[a].counter, "key_set_j", schedule_selection)
 
             new_sysconfig[a] = schedule_selection
 
@@ -453,8 +454,7 @@ class COHDA:
                 new_schedules[a] = schedule
 
             # create new SolutionCandidate
-            candidate = SolutionCandidate(agent_id=agent_id, schedules=new_schedules, perf=None)
-            candidate.perf = perf_func(candidate, target_params, value_weights)
+            candidate = SolutionCandidate(agent_id=agent_id, schedules=new_schedules)
 
         return candidate
 
