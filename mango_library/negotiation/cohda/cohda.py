@@ -155,7 +155,7 @@ class COHDA:
     """COHDA-decider
     """
 
-    def __init__(self, schedule_provider, is_local_acceptable, part_id: str, value_weights, open_value_weights, perf_func=None):
+    def __init__(self, schedule_provider, is_local_acceptable, part_id: str, value_weights, open_value_weights):
         self._schedule_provider = [EnergySchedules(dict_schedules={'power': np.array(schedule), 'heat': np.array(schedule) * 0}, value_weights=value_weights) for schedule in schedule_provider]
         self._is_local_acceptable = is_local_acceptable
         self._memory = WorkingMemory(None, SystemConfig({}), SolutionCandidate(part_id, {}))
@@ -167,10 +167,6 @@ class COHDA:
         """ for print """
         self._last = "String for printing"
         """ for print """
-        if perf_func is None:
-            self._perf_func = self.deviation_to_target_schedule
-        else:
-            self._perf_func = perf_func
 
     def print_color(self, text, color=colors.RESET_ALL):
         print(colors.RESET_ALL, end="")
@@ -253,8 +249,6 @@ class COHDA:
                     # recognized in handle_cohda_msgs()
                     current_candidate = SolutionCandidate(agent_id=self._part_id, schedules=schedules)
                     # print("270: current_candidate.cluster_schedule", current_candidate)
-                    # current_candidate.perf = self._perf_func(current_candidate,
-                    #                                          self._memory.target_params, self._value_weights)
                 else:
                     current_candidate = self._memory.solution_candidate
 
@@ -267,10 +261,7 @@ class COHDA:
             # print(current_sysconfig)
             current_candidate = self._merge_candidates(candidate_i=current_candidate,
                                                        candidate_j=new_candidate,
-                                                       agent_id=self._part_id,
-                                                       perf_func=self._perf_func,
-                                                       target_params=self._memory.target_params,
-                                                       value_weights=self._value_weights)
+                                                       agent_id=self._part_id)
 
         return current_sysconfig, current_candidate
 
@@ -325,13 +316,9 @@ class COHDA:
         for schedule in possible_schedules:
             if self._is_local_acceptable(schedule):
                 # create new candidate from sysconfig
-                # print("schedule", schedule)
                 new_candidate = SolutionCandidate.create_from_updated_sysconf(
                     agent_id=self._part_id, sysconfig=sysconfig, new_energy_schedule=schedule
                 )
-                # new_candidate.perf = self._perf_func(new_candidate, self._memory.target_params, self._value_weights)
-                # current_best_candidate.perf = self._perf_func(current_best_candidate, self._memory.target_params, self._value_weights)
-                # TODO Add the penaltys to the perf in self._perf_func() needs self._value_weights
                 # only keep new candidates that perform better than the current one
                 if new_candidate.perf > current_best_candidate.perf:
                     current_best_candidate = new_candidate
@@ -415,15 +402,13 @@ class COHDA:
 
     @staticmethod
     def _merge_candidates(candidate_i: SolutionCandidate, candidate_j: SolutionCandidate,
-                          agent_id: str, perf_func: Callable, target_params, value_weights):
+                          agent_id: str):
         """
         Returns a merged Candidate. If the candidate_i remains unchanged, the same instance of candidate_i is
         returned, otherwise a new object is created with agent_id as candidate.agent_id
         :param candidate_i: The first candidate
         :param candidate_j: The second candidate
         :param agent_id: The agent_id that defines who is the creator of a new candidate
-        :param perf_func: The performance function
-        :param target_params: The current target parameters (e. g. a target schedule)
         :return:  A merged SolutionCandidate. If the candidate_i remains unchanged, the same instance of candidate_i is
         returned, otherwise a new object is created.
         """
