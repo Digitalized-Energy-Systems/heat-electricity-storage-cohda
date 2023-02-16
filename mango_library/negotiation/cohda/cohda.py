@@ -4,6 +4,7 @@ integrate COHDA in the negotiation system and the core COHDA-decider together wi
 import asyncio
 import logging
 import time
+from copy import copy
 from typing import List, Dict, Any, Tuple, Optional, Callable
 
 import numpy as np
@@ -18,16 +19,16 @@ from mango_library.negotiation.core import NegotiationParticipant, NegotiationSt
 logger = logging.getLogger(__name__)
 # logging.basicConfig(level=logging.INFO)
 # logging.basicConfig(level=logging.DEBUG)
-
-start_time = time.time()
-global_start_time = time.time()
 printarray = [
     "-start_values",
-    "start _decide",
     "-open_schedule",
-    "Calculate the schedules",
+    "-Calculate the schedules",
+    "-power_open_schedule",
     "-pow_to_take_over_conversion",
     "-testpow_to_take_over_conversion",
+    "-start _decide",
+    "-max_value_schedules",
+    "-return",
 ]
 pd.set_option('display.width', None)
 pd.set_option('display.max_rows', 10)
@@ -35,16 +36,7 @@ pd.options.display.float_format = '{:,.0f}'.format
 pd.set_option('display.colheader_justify', 'center')
 
 
-def get_time():
-    global start_time
-    global global_start_time
-    time_diff = time.time() - start_time
-    # print(f" - g: {format(time.time() - global_start_time, '.6f')}s - {format(time.time() - start_time, '.6f')}s - {text} -")
-    start_time = time.time()
-    return [time_diff, start_time - global_start_time]
-
-
-class colors:
+class Colors:
     RESET_ALL = "\033[0m"
 
     BOLD = "\033[1m"
@@ -98,14 +90,36 @@ class colors:
     BACKGROUND_WHITE = "\033[107m"
 
 
+start_time = {Colors.BACKGROUND_LIGHT_MAGENTA: time.time()}
+global_start_time = time.time()
+
+
+def get_time(color):
+    global start_time
+    global global_start_time
+    if color not in start_time.keys():
+        start_time[color] = time.time()
+    time_diff = time.time() - start_time[color]
+    # print(f" - g: {format(time.time() - global_start_time, '.6f')}s - {format(time.time() - start_time, '.6f')}s - {text} -")
+    start_time[color] = time.time()
+    return [time_diff, start_time[color] - global_start_time]
+
+
 def test_print(param):
+    length = 0
+    for val in printarray:
+        if not (len(val) <= length or val[0] == "-"):
+            length = len(val)
+    length -= len(param)
+    part = int(length / 2)
     if any([item == param for item in printarray]):
+        print(f"{Colors.BOLD}{Colors.YELLOW}{' ' * part}{param}{' ' * (length - part)}{Colors.RESET_ALL}", end=" ")
         return True
     elif any([item == "-" + param for item in printarray]):
         return False
     else:
-        print(f'{colors.BACKGROUND_RED}test_print("{colors.BOLD}{param}{colors.RESET_ALL}{colors.BACKGROUND_RED}"){colors.RESET_ALL}')
-        return False
+        print(f"{Colors.BOLD}{Colors.BACKGROUND_RED}{' ' * part}{param}{' ' * (length - part)}{Colors.RESET_ALL}", end=" ")
+        return True
 
 
 @json_serializable
@@ -156,7 +170,7 @@ class COHDA:
     """
 
     def __init__(self, schedule_provider, is_local_acceptable, part_id: str, value_weights, open_value_weights, perf_func=None):
-        self._schedule_provider = [EnergySchedules(dict_schedules={'power': np.array(schedule), 'heat': np.array(schedule) * 0}, value_weights=value_weights) for schedule in schedule_provider]
+        self._schedule_provider = [EnergySchedules(dict_schedules={'power': np.array(schedule), 'heat': np.array(schedule) * 0}) for schedule in schedule_provider]
         self._is_local_acceptable = is_local_acceptable
         self._memory = WorkingMemory(None, SystemConfig({}), SolutionCandidate(part_id, {}))
         self._counter = 0
@@ -164,24 +178,21 @@ class COHDA:
         self._convert_amount = np.array([value_weights['convert_amount']] * len(schedule_provider[0]))
         self._value_weights = value_weights
         self._open_value_weights = open_value_weights
-        """ for print """
-        self._last = "String for printing"
-        """ for print """
         if perf_func is None:
             self._perf_func = self.deviation_to_target_schedule
         else:
             self._perf_func = perf_func
 
-    def print_color(self, text, color=colors.RESET_ALL):
-        print(colors.RESET_ALL, end="")
-        print(colors.BOLD, end="")
+    def print_color(self, text, color=Colors.RESET_ALL):
+        print(Colors.RESET_ALL, end="")
+        print(Colors.BOLD, end="")
         print(color, end="")
-        if color == colors.RESET_ALL:
+        if color is Colors.RESET_ALL:
             print(f"agent{self._part_id}: {text}")
         else:
-            time_diffs = get_time()
-            print(f"agent{self._part_id}: {text} - {format(time_diffs[0] * 1000, '.3f')}ms - {format(time_diffs[1], '.6f')}s")
-        print(colors.RESET_ALL, end="")
+            time_diffs = get_time(color)
+            print(f"agent{self._part_id}: {format(time_diffs[0] * 1000, '.3f')}ms - {format(time_diffs[1], '.6f')}s - {text}")
+        print(Colors.RESET_ALL, end="")
 
     @staticmethod
     def deviation_to_target_schedule(cluster_schedule: SolutionCandidate, target_parameters):
@@ -190,7 +201,7 @@ class COHDA:
         """
         # TODO Add the use of np.array(weights)
         target_schedule, weights = target_parameters
-        target_schedule = EnergySchedules(dict_schedules=target_schedule)
+        target_schedule = EnergySchedules(dict_schedules=target_schedule, value_weights=None)
         for agent_id in cluster_schedule.schedules:
             target_schedule = target_schedule - cluster_schedule.schedules[agent_id]
         # TODO Can the cluster_schedule be empty? And is that important for the calculation?
@@ -284,55 +295,184 @@ class COHDA:
         """
 
         if test_print("start _decide"):
-            self.print_color("start _decide", colors.BACKGROUND_LIGHT_MAGENTA)
+            self.print_color("start _decide", Colors.BACKGROUND_LIGHT_MAGENTA)
 
         """ calc power_open_schedule """
         # TODO use the weights in target_params
-        target_schedule = EnergySchedules(dict_schedules=self._memory.target_params[0], value_weights={'power_penalty': 0, 'heat_penalty': 0})
+        target_schedule = EnergySchedules(dict_schedules=self._memory.target_params[0])
         open_schedule = target_schedule
         for candidate_schedule_key in candidate.schedules.keys():
             open_schedule -= candidate.schedules[candidate_schedule_key]
         if test_print("open_schedule"):
-            self.print_color(f"{colors.BOLD}ZIEL:{colors.RESET_ALL} {target_schedule}")
-            self.print_color(f"{colors.BOLD}open_schedule{colors.RESET_ALL} {open_schedule}")
-            self.print_color(f"{colors.BOLD}self._open_value_weights{colors.RESET_ALL} {self._open_value_weights}")
-            self.print_color(f"{colors.BOLD}sysconfig{colors.RESET_ALL} {sysconfig}")
-            self.print_color(f"{colors.BOLD}candidate{colors.RESET_ALL} {candidate}")
-            self.print_color(f"{colors.BOLD}convert_amount{colors.RESET_ALL} {self._convert_amount}")
+            self.print_color(f"{Colors.BOLD}ZIEL:{Colors.RESET_ALL} {target_schedule}")
+            self.print_color(f"{Colors.BOLD}open_schedule{Colors.RESET_ALL} {open_schedule}")
+            self.print_color(f"{Colors.BOLD}self._open_value_weights{Colors.RESET_ALL} {self._open_value_weights}")
+            self.print_color(f"{Colors.BOLD}sysconfig{Colors.RESET_ALL} {sysconfig}")
+            self.print_color(f"{Colors.BOLD}candidate{Colors.RESET_ALL} {candidate}")
+            self.print_color(f"{Colors.BOLD}convert_amount{Colors.RESET_ALL} {self._convert_amount}")
 
         possible_schedules = self._schedule_provider
         current_best_candidate = candidate
+        current_best_candidate.perf = float('-inf')
+
         # current_best_candidate.perf = float('-inf')  # TODO good?
 
         # TODO If equal: look for more expensive energy conversions to replace
+        # TODO add the more expensive energy to the open_schedule and try to fill it
         # print(f"{len(sysconfig.schedule_choices)} len(sysconfig.schedule_choices) {sysconfig.schedule_choices}")
         # print(f"{len(self._open_value_weights)} self._open_value_weights {self._open_value_weights}")
-        take_over_conversion = self._convert_amount * 0
         """ when each agent has made an offer and open convert_amount is available """
+
+        """
+        take_over_conversion = self._convert_amount * 0
         # TODO sort other agent values and use the values for the next calculation
         # if len(sysconfig.schedule_choices) == len(self._open_value_weights) and \
         #         np.sum(self._convert_amount) > np.sum(current_best_candidate.conversions.get(self._part_id)):
-        #     own_price = self._own_value_weights['power_kwh_price'] - self._own_value_weights["converted_price"]
+        #     own_price = self._value_weights['power_kwh_price'] - self._value_weights["converted_price"]
         #     for i in sysconfig.schedule_choices:
         #         price = self._open_value_weights[int(i)]['power_kwh_price'] \
         #                 - self._open_value_weights[int(i)]["converted_price"]
         #         if price > own_price and np.sum(sysconfig.conversion_choices.get(i).conversion) > 0:
-        #             """ try to adopt more expensive conversions """
+        """
+        """ try to adopt more expensive conversions """
+        """
         #             take_over_conversion += sysconfig.conversion_choices.get(i).conversion
         #             # print(i, sysconfig.schedule_choices.get(i).schedule, sysconfig.conversion_choices.get(i).conversion)
         #             # print(f"{self._open_value_weights[int(i)]}")
-
+        """
+        """
         for schedule in possible_schedules:
             if self._is_local_acceptable(schedule):
                 # create new candidate from sysconfig
                 # print("schedule", schedule)
                 new_candidate = SolutionCandidate.create_from_updated_sysconf(
                     agent_id=self._part_id, sysconfig=sysconfig, new_energy_schedule=schedule
-                )
-                # new_candidate.perf = self._perf_func(new_candidate, self._memory.target_params, self._value_weights)
-                # current_best_candidate.perf = self._perf_func(current_best_candidate, self._memory.target_params, self._value_weights)
-                # TODO Add the penaltys to the perf in self._perf_func() needs self._value_weights
+                        )
+                        # new_candidate.perf = self._perf_func(new_candidate, self._memory.target_params, self._value_weights)
+                        # current_best_candidate.perf = self._perf_func(current_best_candidate, self._memory.target_params, self._value_weights)
+                        # TODO Add the penaltys to the perf in self._perf_func() needs self._value_weights
+                        # only keep new candidates that perform better than the current one
+                        if new_candidate.perf > current_best_candidate.perf:
+                            current_best_candidate = new_candidate
+        """
+
+        """ calculate the best gas_amount for each timestamp """
+        for energy_schedule in possible_schedules:
+            if self._is_local_acceptable(energy_schedule):
+                schedule_with_max_values = []
+                for timestamp, _ in enumerate(list(energy_schedule.dict_schedules.values())[0]):
+                    max_gas_amount = self._value_weights['max_gas_amount']
+                    fixed_values = {'heat_open': np.max([open_schedule.dict_schedules['heat'][timestamp],0]),
+                                    'power_open': np.max([open_schedule.dict_schedules['power'][timestamp],0]),
+                                    'power_schedule_timestamp': energy_schedule.dict_schedules['power'][timestamp]}
+                    old_gas_amount = 0
+                    if candidate.schedules[self._part_id] and 'gas_amount' in candidate.schedules[self._part_id].dict_schedules.keys() and candidate.schedules[self._part_id].dict_schedules['gas_amount'][timestamp]:
+                        old_gas_amount = candidate.schedules[self._part_id].dict_schedules['gas_amount'][timestamp]
+                    list_of_outputs = [self.test_gas_amount(old_gas_amount, fixed_values)]
+                    if max_gas_amount < 4:
+                        for i in range(0, max_gas_amount):
+                            list_of_outputs.append(self.test_gas_amount(i, fixed_values))
+                    else:
+                        list_of_outputs.append(self.test_gas_amount(int(max_gas_amount * 0), fixed_values))
+                        list_of_outputs.append(self.test_gas_amount(int(max_gas_amount / 4), fixed_values))
+                        list_of_outputs.append(self.test_gas_amount(int(max_gas_amount / 2), fixed_values))
+                        list_of_outputs.append(self.test_gas_amount(int(max_gas_amount / 4 * 3), fixed_values))
+                        list_of_outputs.append(self.test_gas_amount(int(max_gas_amount * 1), fixed_values))
+                        while len(list_of_outputs) < min(10, max_gas_amount):
+                            list_of_outputs.sort(key=lambda x: [x['value'], -x['gas_amount']], reverse=True)
+                            # list_of_outputs[0] = max(list_of_outputs, key=lambda item: item['value'])
+                            less_value_objects = list(filter(lambda x: (x['gas_amount'] < list_of_outputs[0]['gas_amount']), list_of_outputs))
+                            if less_value_objects:
+                                less_value_object = max(less_value_objects, key=lambda item: item['value'])
+                                list_of_outputs.append(self.test_gas_amount(int((list_of_outputs[0]['gas_amount'] + less_value_object['gas_amount']) / 2), fixed_values))
+                            more_value_objects = list(filter(lambda x: (x['gas_amount'] > list_of_outputs[0]['gas_amount']), list_of_outputs))
+                            if more_value_objects:
+                                more_value_object = max(more_value_objects, key=lambda item: item['value'])
+                                list_of_outputs.append(self.test_gas_amount(int((list_of_outputs[0]['gas_amount'] + more_value_object['gas_amount']) / 2), fixed_values))
+                    list_of_outputs.sort(key=lambda x: [x['value'], -x['gas_amount']], reverse=True)
+                    # print("max_value", list_of_outputs[0])
+                    schedule_with_max_values.append(list_of_outputs[0])
+                max_value_schedules = {}
+                for key in schedule_with_max_values[0].keys():
+                    max_value_schedule = []
+                    for value in schedule_with_max_values:
+                        max_value_schedule.append(value[key])
+                    max_value_schedules[key] = max_value_schedule
+                if test_print("max_value_schedules"):
+                    self.print_color((np.sum(max_value_schedules['value']), max_value_schedules))
+                """ fill power_open_schedule """
+                # new_schedule = np.amin([power_open_schedule, renewable_schedule], axis=0)
+                """ use the power to fill the open_schedule """
+                # new_schedule = np.amin([open_schedule.dict_schedules['power'], max_value_schedules['power']], axis=0)
+                # new_schedule[new_schedule < 0] = 0
+                # if test_print("power_open_schedule"):
+                #     self.print_color(f"{Colors.BOLD}new_schedule{Colors.RESET_ALL} {new_schedule}")
+                """ use the rest for conversion """
+                # new_conversion = renewable_schedule - new_schedule
+                """ use the rest for conversion """
+                # new_conversion = max_value_schedules['power'] - new_schedule
+                # new_conversion[new_conversion < 0] = 0
+                # new_conversion[new_conversion > self._value_weights['convert_amount']] = self._value_weights['convert_amount']
+                # if test_print("power_open_schedule"):
+                #     self.print_color(f"{Colors.BOLD}new_conversion{Colors.RESET_ALL} {new_conversion}")
+                """
+                if np.sum(take_over_conversion) > 0 and np.sum(self._convert_amount) > np.sum(new_conversion):
+                    if test_print("pow_to_take_over_conversion"):
+                        print(f"{Colors.BOLD}take_over_conversion {Colors.RESET_ALL}{take_over_conversion}")
+                        print(f"{Colors.BOLD}new_conversion {Colors.RESET_ALL}{new_conversion}")
+                    pow_to_take_over_conversion = self._convert_amount - new_conversion
+                    pow_to_take_over_conversion = np.amin([pow_to_take_over_conversion, take_over_conversion], axis=0)
+                    pow_to_take_over_conversion = np.amin([pow_to_take_over_conversion, new_schedule], axis=0)
+                    if test_print("pow_to_take_over_conversion"):
+                        print(f"{Colors.BOLD}pow_to_take_over_conversion {Colors.RESET_ALL}{pow_to_take_over_conversion}")
+                    if test_print("testpow_to_take_over_conversion"):
+                        self.print_color(f"{Colors.BOLD}s:{new_schedule} c:{new_conversion}{Colors.RESET_ALL}")
+                    new_schedule -= pow_to_take_over_conversion
+                    new_conversion += pow_to_take_over_conversion
+                    if test_print("testpow_to_take_over_conversion"):
+                        self.print_color(f"{Colors.BOLD}s:{new_schedule} c:{new_conversion}{Colors.RESET_ALL}")
+                """
+
+                # penalty
+                """
+                penalty = energy_schedule - new_schedule - new_conversion
+                if test_print("power_open_schedule"):
+                    self.print_color(f"{Colors.BOLD}penalty{Colors.RESET_ALL} {penalty}")
+                    self.print_color(f"{new_schedule}*{self._value_weights['power_kwh_price']}+{new_conversion}*{self._value_weights['converted_price']}-{penalty}*{self._value_weights['power_penalty']}")
+                    self.print_color(f"{new_schedule * self._value_weights['power_kwh_price'] + new_conversion * self._value_weights['converted_price'] - penalty * self._value_weights['power_penalty']}")
+                    self.print_color(f"{np.sum(new_schedule * self._value_weights['power_kwh_price'] + new_conversion * self._value_weights['converted_price'] - penalty * self._value_weights['power_penalty'])}")
+                # create new candidate from sysconfig
+                new_candidate = SolutionCandidate.create_from_updated_sysconf(
+                    agent_id=self._part_id, sysconfig=sysconfig, new_schedule=np.array(new_schedule + penalty),
+                    new_conversion=np.array(new_conversion))
+                # new_performance = self._perf_func(new_candidate.cluster_schedule, self._memory.target_params)
+                # TODO is taking 'power_kwh_price' for 'new_conversion' right
+                data_line = [np.sum(new_schedule * self._value_weights['power_kwh_price']),
+                             np.sum(new_conversion * self._value_weights['power_kwh_price']),
+                             np.sum(-penalty * self._value_weights['power_penalty'])]
+                new_performance = np.sum(data_line)
+                data_line.append(new_performance)
+                data_line.append(new_schedule)
+                data_line.append(new_conversion)
+                data_line.append(penalty)
+                data.append(data_line)
                 # only keep new candidates that perform better than the current one
+                print(new_candidate)
+                """
+                # TODO new_performance needs to be out of a new EnergySchedules with .perf
+                # TODO current_best_candidate needs to be out of a new EnergySchedules with .perf
+                new_candidate_schedules = copy(current_best_candidate.schedules)
+                new_candidate_schedules[self._part_id] = EnergySchedules(
+                    dict_schedules={
+                        'power': max_value_schedules['end_power'],
+                        'heat': max_value_schedules['end_heat'],
+                        'gas_amount': max_value_schedules['gas_amount'],
+                        'power_to_heat': max_value_schedules['power_to_heat'],
+                        'power_to_conversion': max_value_schedules['power_to_conversion'],
+                    },
+                    perf=np.sum(max_value_schedules['value']),
+                )
+                new_candidate = SolutionCandidate(agent_id=self._part_id, schedules=new_candidate_schedules)
                 if new_candidate.perf > current_best_candidate.perf:
                     current_best_candidate = new_candidate
 
@@ -347,9 +487,48 @@ class COHDA:
             # update counter
             self._counter += 1
 
+        if test_print("return"):
+            self.print_color(current_best_candidate.schedules[self._part_id].perf)
+        if self._part_id == "0":
+            open_schedule = target_schedule
+            for candidate_schedule_key in current_best_candidate.schedules.keys():
+                open_schedule -= current_best_candidate.schedules[candidate_schedule_key]
+            perf=np.round(np.sum(open_schedule.dict_schedules['power'])+np.sum(open_schedule.dict_schedules['heat'])).astype(int)
+            print(f"{self._part_id}: perf: {perf} - {format((time.time() - global_start_time), '.3f')}s")
+            # print(f"{self._part_id}: perf: {perf} - {format((time.time() - global_start_time), '.3f')}s")
+        # if candidate.schedules[self._part_id].perf == current_best_candidate.schedules[self._part_id].perf:
+        #     print(f"{self._part_id}: perf: {candidate.schedules[self._part_id].perf}")
+        # else:
+        #     print(f"{self._part_id}: {candidate.schedules[self._part_id]}")
+        #     print(f"{self._part_id}: {current_best_candidate.schedules[self._part_id]}")
+        #     print("-----")
         if test_print("start _decide"):
-            self.print_color("end _decide", colors.BACKGROUND_LIGHT_MAGENTA)
+            self.print_color("end _decide", Colors.BACKGROUND_LIGHT_MAGENTA)
         return sysconfig, current_best_candidate
+
+    def test_gas_amount(self, gas_amount, fixed_values):
+        gas_to_power = gas_amount * self._value_weights['gas_to_power_factor']
+        gas_to_heat = gas_amount * self._value_weights['gas_to_heat_factor']
+        max_power_to_power_to_heat = np.min([self._value_weights['power_to_heat_amount'],
+                                             fixed_values['power_schedule_timestamp'] + gas_to_power - fixed_values['power_open']])
+        max_heat_in_power_to_heat = np.max([(fixed_values['heat_open'] - gas_to_heat) / self._value_weights['power_to_heat_factor'],0])
+        power_to_heat = np.max([np.min([max_power_to_power_to_heat, max_heat_in_power_to_heat]), 0])
+        power_to_conversion = np.min([np.max([fixed_values['power_schedule_timestamp'] + gas_to_power - power_to_heat - fixed_values['power_open'], 0]), self._value_weights['converted_price']])
+        end_power = fixed_values['power_schedule_timestamp'] + gas_to_power - power_to_heat - power_to_conversion
+        end_heat = gas_to_heat + power_to_heat * self._value_weights['power_to_heat_factor']
+        value = end_power * self._value_weights['power_kwh_price'] + end_heat * self._value_weights['heat_kwh_price'] \
+                - np.absolute(end_power - fixed_values['power_open']) * self._value_weights['power_penalty'] \
+                - np.absolute(end_heat - fixed_values['heat_open']) * self._value_weights['heat_penalty'] \
+                - gas_amount * self._value_weights['gas_price']
+
+        # print("DATA",
+        #       end_power * self._value_weights['power_kwh_price'] + end_heat * self._value_weights['heat_kwh_price'] - np.absolute(end_power - power_open) * self._value_weights['power_penalty'] - np.absolute(end_heat - heat_open) * self._value_weights['heat_penalty'],
+        #       end_power * self._value_weights['power_kwh_price'],
+        #       end_heat * self._value_weights['heat_kwh_price'],
+        #       np.absolute(end_power - power_open) * self._value_weights['power_penalty'],
+        #       np.absolute(end_heat - heat_open) * self._value_weights['heat_penalty'],
+        #       timestamp, end_power, end_heat)
+        return {'gas_amount': gas_amount, 'value': value, 'end_power': end_power, 'end_heat': end_heat, 'power_to_heat': power_to_heat, 'power_to_conversion': power_to_conversion}
 
     def _act(self, new_sysconfig: SystemConfig, new_candidate: SolutionCandidate) -> CohdaMessage:
         """

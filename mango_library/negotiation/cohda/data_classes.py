@@ -14,19 +14,20 @@ class EnergySchedules:
     Model for the schedules in solution candidates in COHDA.
     """
 
-    def __init__(self, dict_schedules: Dict[str, np.array], value_weights, perf=None) -> None:
+    def __init__(self, dict_schedules: Dict[str, np.array], perf=None) -> None:
         """One dictionary for all energy schedules
 
         :return: None
         """
         self._dict_schedules = dict_schedules
-        self._value_weights = value_weights
         self._perf = perf
 
     def __str__(self):
-        string = "EnergySchedules perf: " + str(self.perf) + "\n"
+        string = f"EnergySchedules"
+        if self.perf is not None: string += f" perf: {np.round(self.perf).astype(int)}"
         for dict_key in self.dict_schedules.keys():
-            string += f'\'{dict_key}\': {list(self.dict_schedules[dict_key])}\n'
+            values = str(list(np.round(self.dict_schedules[dict_key], 0).astype(int))).replace(', ', '\t')
+            string += f"\t\'{dict_key}\': {values}"
         return string
 
     def __eq__(self, o: object) -> bool:
@@ -44,19 +45,28 @@ class EnergySchedules:
         if isinstance(o, EnergySchedules):
             dict_schedules = self.dict_schedules.copy()
             for dict_key in o.dict_schedules.keys():
-                dict_schedules[dict_key] += o.dict_schedules[dict_key]
-            return EnergySchedules(dict_schedules=dict_schedules, value_weights=None, perf=self.perf + o.perf)
-        # TODO throw Exception(__add__2)?
+                if dict_key in dict_schedules.keys():
+                    dict_schedules[dict_key] = np.add(dict_schedules[dict_key], o.dict_schedules[dict_key])
+                else:
+                    dict_schedules[dict_key] = o.dict_schedules[dict_key]
+            perf = None
+            if self.perf is not None and o.perf is not None:
+                perf = self.perf - o.perf
+            return EnergySchedules(dict_schedules=dict_schedules, perf=perf)
+        # TODO throw Exception(__add__)?
         return self
 
     def __sub__(self, o: object):
         if isinstance(o, EnergySchedules):
-            dict_schedules = {}
+            dict_schedules = self.dict_schedules.copy()
             for dict_key in self.dict_schedules.keys():
                 if dict_key in o.dict_schedules.keys():
-                    dict_schedules[dict_key] = self.dict_schedules[dict_key] - o.dict_schedules[dict_key]
-            return EnergySchedules(dict_schedules=dict_schedules, value_weights=None, perf=self.perf - o.perf)
-        # TODO throw Exception(__sub__2)?
+                    dict_schedules[dict_key] = np.subtract(dict_schedules[dict_key], o.dict_schedules[dict_key])
+            perf = None
+            if self.perf is not None and o.perf is not None:
+                perf = self.perf - o.perf
+            return EnergySchedules(dict_schedules=dict_schedules, perf=perf)
+        # TODO throw Exception(__sub__)?
         return self
 
     def sum(self):
@@ -87,11 +97,6 @@ class EnergySchedules:
 
         :return: float of the energy schedules performance
         """
-        if self._perf is None and self._value_weights:
-            result = 0
-            for dict_key in self.dict_schedules.keys():
-                result += np.sum(self.dict_schedules[dict_key] * self._value_weights[dict_key + '_penalty'])
-            return result
         return self._perf
 
     @property
@@ -129,9 +134,7 @@ class SolutionCandidate:
     def __str__(self):
         string = "SolutionCandidate perf: " + str(self.perf)
         for schedule_keys in self.schedules.keys():
-            string += "\n"
-            string += schedule_keys
-            string += " " + self.schedules[schedule_keys].__str__()
+            string += "\n" + schedule_keys + " " + self.schedules[schedule_keys].__str__()
         return string
 
     @property
@@ -164,12 +167,20 @@ class SolutionCandidate:
         Returns the performance value of the candidate
         :return:
         """
-        if not self._perf:
+        if self._perf is None:
             perf = 0
             for key in self._schedules.keys():
                 perf += self._schedules[key].perf
             self._perf = perf
         return self._perf
+
+    @perf.setter
+    def perf(self, new_perf: float):
+        """Set the perf
+
+        :param new_perf: perf
+        """
+        self._perf = new_perf
 
     @property
     def cluster_schedule(self) -> EnergySchedules:
@@ -179,12 +190,12 @@ class SolutionCandidate:
         """
         cluster_schedule = EnergySchedules(dict_schedules={})
         for agent_energy_schedules in list(self.schedules.values()):
-            for energie_schedule_key in list(agent_energy_schedules.dict_schedules.keys()):
+            for energy_schedule_key in list(agent_energy_schedules.dict_schedules.keys()):
                 dict_schedules = cluster_schedule.dict_schedules
-                if energie_schedule_key in dict_schedules:
-                    dict_schedules[energie_schedule_key] = np.sum([dict_schedules[energie_schedule_key], agent_energy_schedules[energie_schedule_key]], axis=0)
+                if energy_schedule_key in dict_schedules:
+                    dict_schedules[energy_schedule_key] = np.sum([dict_schedules[energy_schedule_key], agent_energy_schedules[energy_schedule_key]], axis=0)
                 else:
-                    dict_schedules[energie_schedule_key] = agent_energy_schedules.dict_schedules[energie_schedule_key]
+                    dict_schedules[energy_schedule_key] = agent_energy_schedules.dict_schedules[energy_schedule_key]
                 cluster_schedule.dict_schedules = dict_schedules
         return cluster_schedule
 
@@ -255,9 +266,7 @@ class SystemConfig:
     def __str__(self):
         string = "SystemConfig"
         for schedule_keys in self.schedule_choices.keys():
-            string += "\n"
-            string += schedule_keys
-            string += " " + self.schedule_choices[schedule_keys].__str__()
+            string += "\n" + schedule_keys + " " + self.schedule_choices[schedule_keys].__str__()
         return string
 
     @property
