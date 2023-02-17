@@ -57,22 +57,24 @@ async def test_case(power_target, heat_target, value_weights, schedules_provider
 
     print(f"{format((time.time() - global_start_time), '.3f')}s")
 
-    target_schedule = EnergySchedules(dict_schedules={'power': np.array(power_target), 'heat': np.array(heat_target)})
-    print(f"target_schedule: {target_schedule}")
-
     solution_candidate_schedules = np.array(list(
         map(lambda item: item[1], agents[0].roles[0]._cohda[coal_id]._memory.solution_candidate.schedules.items())))
 
-    test = agents[0].roles[0]._cohda[coal_id]._memory.solution_candidate
-    print(f"test: {test}")
-    solution_candidate_schedules_sum = solution_candidate_schedules[0]
-    for i, solution_candidate_schedule in enumerate(solution_candidate_schedules):
-        if i > 0:
-            print(f"agent{i}: {solution_candidate_schedule}")
-            solution_candidate_schedules_sum += solution_candidate_schedule
+    target_schedule = EnergySchedules(dict_schedules={'power': np.array(power_target), 'heat': np.array(heat_target)})
+    print(f"target_schedule: {target_schedule}")
+
+    best_energy_schedules = None
+    best_energy_schedules_perf = float("-inf")
+    for agent in agents:
+        energy_schedules = agent.roles[0]._cohda[coal_id]._best_solution_candidate
+        print(f"{agent.aid} - perf: {energy_schedules.perf}")
+        if best_energy_schedules is None or energy_schedules.perf < best_energy_schedules_perf:
+            best_energy_schedules = energy_schedules
+            best_energy_schedules_perf = energy_schedules.perf
+    print(f"BEST: {best_energy_schedules}")
     soll = EnergySchedules(dict_schedules={'power': power_target, 'heat': heat_target})
     print(f'SOLL:\t{soll}')
-    ist = solution_candidate_schedules_sum
+    ist = best_energy_schedules.to_energy_schedules()
     print(f'IST:\t{ist}')
     diff = ist - soll
     print(f'DIFF:\t{diff}')

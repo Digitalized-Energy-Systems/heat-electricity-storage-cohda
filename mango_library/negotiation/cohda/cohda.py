@@ -174,11 +174,13 @@ class COHDA:
         self._schedule_provider = [EnergySchedules(dict_schedules={'power': np.array(schedule), 'heat': np.array(schedule) * 0}) for schedule in schedule_provider]
         self._is_local_acceptable = is_local_acceptable
         self._memory = WorkingMemory(None, SystemConfig({}), SolutionCandidate(part_id, {}))
+        self._best_solution_candidate = None
         self._counter = 0
         self._part_id = part_id
         self._convert_amount = np.array([value_weights['convert_amount']] * len(schedule_provider[0]))
         self._value_weights = value_weights
         self._open_value_weights = open_value_weights
+        # TODO perf_func needed?
         if perf_func is None:
             self._perf_func = self.deviation_to_target_schedule
         else:
@@ -202,7 +204,7 @@ class COHDA:
         """
         # TODO Add the use of np.array(weights)
         target_schedule, weights = target_parameters
-        target_schedule = EnergySchedules(dict_schedules=target_schedule, value_weights=None)
+        target_schedule = EnergySchedules(dict_schedules=target_schedule)
         for agent_id in cluster_schedule.schedules:
             target_schedule = target_schedule - cluster_schedule.schedules[agent_id]
         # TODO Can the cluster_schedule be empty? And is that important for the calculation?
@@ -231,9 +233,10 @@ class COHDA:
             global best_counter_end
             best_counter += 1
             candidate_copy = copy(candidate)
-            if self._part_id not in best_perf.keys():
-                best_perf[self._part_id] = candidate_copy
-            if best_perf[self._part_id].perf > candidate.perf or len(best_perf[self._part_id].schedules) < len(candidate.schedules):
+            if self._part_id not in best_perf.keys() or \
+                    best_perf[self._part_id].perf > candidate.perf or \
+                    len(best_perf[self._part_id].schedules) < len(candidate.schedules):
+                self._best_solution_candidate = candidate_copy
                 best_perf[self._part_id] = candidate_copy
                 best_counter = 0
             min_perf = float("inf")
@@ -244,8 +247,9 @@ class COHDA:
                 if max_perf < best_perf[best_perf_keys].perf:
                     max_perf = best_perf[best_perf_keys].perf
             diff = max_perf - min_perf
-            if best_counter > len(best_perf)*2:
-                best_counter_end=True
+            # TODO Optimal multiplication
+            if best_counter > len(best_perf) * 20:
+                best_counter_end = True
             if best_counter_end:
                 print(Colors.BOLD, end="")
             print(f"{self._part_id}: new:{format(candidate_copy.perf, '.3f')} - {format(min_perf, '.0f')}-{format(max_perf, '.0f')} - {format((time.time() - global_start_time), '.3f')}s - diff:{np.round(diff, 3)} - {best_counter}")
@@ -409,11 +413,7 @@ class COHDA:
             # update counter
             self._counter += 1
 
-        perf_schedule = target_schedule
-        for candidate_schedule_key in current_best_candidate.schedules.keys():
-            perf_schedule -= current_best_candidate.schedules[candidate_schedule_key]
-        perf = np.sum(np.abs(perf_schedule.dict_schedules['power'])) + np.sum(np.abs(perf_schedule.dict_schedules['heat']))
-        current_best_candidate.perf = perf
+        current_best_candidate.perf = current_best_candidate.to_energy_schedules().get_perf(target_schedule)
         if test_print("start _decide"):
             self.print_color("end _decide", Colors.BACKGROUND_LIGHT_MAGENTA)
 

@@ -76,6 +76,13 @@ class EnergySchedules:
             result[dict_key] = np.sum(self.dict_schedules[dict_key])
         return result
 
+    def get_perf(self, target_schedule) -> float:
+        result = 0
+        for dict_key in target_schedule.dict_schedules.keys():
+            test = np.abs(np.subtract(target_schedule.dict_schedules[dict_key], self.dict_schedules[dict_key]))
+            result += np.sum(test)
+        return result
+
     @property
     def dict_schedules(self) -> Dict[str, np.array]:
         """Return the energy schedules
@@ -99,14 +106,6 @@ class EnergySchedules:
         :return: float of the energy schedules performance
         """
         return self._perf
-
-    @property
-    def value_weights(self) -> float:
-        """Return the value_weights of the energy schedules
-
-        :return: float of the energy schedules value_weights
-        """
-        return self._value_weights
 
 
 @json_serializable
@@ -135,8 +134,18 @@ class SolutionCandidate:
     def __str__(self):
         string = "SolutionCandidate perf: " + str(self.perf)
         for schedule_keys in self.schedules.keys():
-            string += "\n" + schedule_keys + " " + self.schedules[schedule_keys].__str__()
+            string += f"\n{schedule_keys} {self.schedules[schedule_keys]}"
         return string
+
+    def to_energy_schedules(self):
+        dict_schedules = {}
+        for schedule_key in self.schedules.keys():
+            for dict_key in self.schedules[schedule_key].dict_schedules.keys():
+                if dict_key in dict_schedules.keys():
+                    dict_schedules[dict_key] = np.sum([dict_schedules[dict_key], self.schedules[schedule_key].dict_schedules[dict_key]], axis=0)
+                else:
+                    dict_schedules[dict_key] = self.schedules[schedule_key].dict_schedules[dict_key]
+        return EnergySchedules(dict_schedules=dict_schedules)
 
     @property
     def agent_id(self) -> str:
