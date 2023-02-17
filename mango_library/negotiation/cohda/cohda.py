@@ -90,8 +90,11 @@ class Colors:
     BACKGROUND_WHITE = "\033[107m"
 
 
+""" globals """
 start_time = {Colors.BACKGROUND_LIGHT_MAGENTA: time.time()}
 global_start_time = time.time()
+best_perf = {}
+""" globals """
 
 
 def get_time(color):
@@ -225,6 +228,19 @@ class COHDA:
         # decide
         if sysconf is not old_sysconf or candidate is not old_candidate:
             sysconf, candidate = self._decide(sysconfig=sysconf, candidate=candidate)
+            global best_perf
+            candidate_copy = copy(candidate)
+            if self._part_id not in best_perf.keys():
+                best_perf[self._part_id] = candidate_copy
+            if best_perf[self._part_id].perf > candidate.perf or len(best_perf[self._part_id].schedules) < len(candidate.schedules):
+                best_perf[self._part_id] = candidate_copy
+                max_perf = 0
+                for best_perf_keys in best_perf.keys():
+                    if max_perf < best_perf[best_perf_keys].perf:
+                        max_perf = best_perf[best_perf_keys].perf
+                print(f"{self._part_id}: new:{candidate_copy.perf} - max:{max_perf} - {format((time.time() - global_start_time), '.3f')}s")
+                if np.abs(candidate_copy.perf - max_perf) < 0.001:
+                    return None
             # act
             return self._act(new_sysconfig=sysconf, new_candidate=candidate)
         else:
@@ -489,19 +505,21 @@ class COHDA:
 
         if test_print("return"):
             self.print_color(current_best_candidate.schedules[self._part_id].perf)
-        if self._part_id == "0":
-            open_schedule = target_schedule
-            for candidate_schedule_key in current_best_candidate.schedules.keys():
-                open_schedule -= current_best_candidate.schedules[candidate_schedule_key]
-            perf=np.round(np.sum(open_schedule.dict_schedules['power'])+np.sum(open_schedule.dict_schedules['heat'])).astype(int)
-            print(f"{self._part_id}: perf: {perf} - {format((time.time() - global_start_time), '.3f')}s")
+        # if self._part_id == "1":
+        #     print()
+            # perf_schedule = target_schedule
+            # for candidate_schedule_key in current_best_candidate.schedules.keys():
+            #     perf_schedule -= current_best_candidate.schedules[candidate_schedule_key]
+            # perf = np.round(np.sum(np.abs(perf_schedule.dict_schedules['power'])) + np.sum(np.abs(perf_schedule.dict_schedules['heat'])), 2)
             # print(f"{self._part_id}: perf: {perf} - {format((time.time() - global_start_time), '.3f')}s")
-        # if candidate.schedules[self._part_id].perf == current_best_candidate.schedules[self._part_id].perf:
-        #     print(f"{self._part_id}: perf: {candidate.schedules[self._part_id].perf}")
-        # else:
-        #     print(f"{self._part_id}: {candidate.schedules[self._part_id]}")
-        #     print(f"{self._part_id}: {current_best_candidate.schedules[self._part_id]}")
-        #     print("-----")
+        perf_schedule = target_schedule
+        for candidate_schedule_key in current_best_candidate.schedules.keys():
+            perf_schedule -= current_best_candidate.schedules[candidate_schedule_key]
+        perf = np.sum(np.abs(perf_schedule.dict_schedules['power'])) + np.sum(np.abs(perf_schedule.dict_schedules['heat']))
+        current_best_candidate.perf = perf
+        # if self._part_id == "1":
+        #     print()
+        # print(f"{np.round(perf, 2)}", end="\t")
         if test_print("start _decide"):
             self.print_color("end _decide", Colors.BACKGROUND_LIGHT_MAGENTA)
         return sysconfig, current_best_candidate
