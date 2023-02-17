@@ -23,10 +23,11 @@ class EnergySchedules:
         self._perf = perf
 
     def __str__(self):
-        string = f"EnergySchedules"
-        if self.perf is not None: string += f" perf: {np.round(self.perf).astype(int)}"
+        string = ""
+        # string += "EnergySchedules"
+        # if self.perf is not None: string += f" perf: {np.round(self.perf).astype(int)}"
         for dict_key in self.dict_schedules.keys():
-            values = str(list(np.round(self.dict_schedules[dict_key], 0).astype(int))).replace(', ', '\t')
+            values = str(list(np.round(self.dict_schedules[dict_key], 2))).replace(', ', '\t')
             string += f"\t\'{dict_key}\': {values}"
         return string
 

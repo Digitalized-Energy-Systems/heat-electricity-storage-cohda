@@ -9,7 +9,6 @@ from mango_library.negotiation.termination import NegotiationTerminationRole
 
 addr = ('127.0.0.2', 5557)
 
-
 async def test_case(power_target, heat_target, value_weights, schedules_provider):
     # logging.basicConfig(level=logging.INFO)
     # logging.info('Läuft bei Dir.')
@@ -35,13 +34,11 @@ async def test_case(power_target, heat_target, value_weights, schedules_provider
         a.add_role(NegotiationTerminationRole(i == 0))
         agents.append(a)
         addrs.append((c.addr, a._aid))
-
     coal_id = uuid.uuid1()
     for part_id, a in enumerate(agents):
         coalition_model = a._agent_context.get_or_create_model(CoalitionModel)
         coalition_model.add(coal_id, CoalitionAssignment(coal_id, list(
-            filter(lambda a_t: a_t[0] != str(part_id), map(lambda ad: (ad[1], c.addr, ad[0].aid), zip(agents, range(10))))), 'cohda', str(part_id), 'agent0', addr))
-
+            filter(lambda a_t: a_t[0] != str(part_id), map(lambda ad: (ad[1], c.addr, ad[0].aid), zip(agents, range(100))))), 'cohda', str(part_id), 'agent0', addr))
     for a in agents:
         if a._check_inbox_task.done():
             if a._check_inbox_task.exception() is not None:
@@ -51,21 +48,27 @@ async def test_case(power_target, heat_target, value_weights, schedules_provider
 
     await asyncio.sleep(.4)
     # await asyncio.wait_for(wait_for_coalition_built(agents), timeout=1E0)
-    await asyncio.wait_for(wait_for_term(agents), timeout=1E2)
+    await asyncio.wait_for(wait_for_term(agents), timeout=1E10)
 
     # gracefully shutdown
     for a in agents:
         await a.shutdown()
     await c.shutdown()
 
+    print(f"{format((time.time() - global_start_time), '.3f')}s")
+
+    target_schedule = EnergySchedules(dict_schedules={'power': np.array(power_target), 'heat': np.array(heat_target)})
+    print(f"target_schedule: {target_schedule}")
+
     solution_candidate_schedules = np.array(list(
         map(lambda item: item[1], agents[0].roles[0]._cohda[coal_id]._memory.solution_candidate.schedules.items())))
-    print(f"{format((time.time() - global_start_time) * 1000, '.3f')}ms")
+
+    test = agents[0].roles[0]._cohda[coal_id]._memory.solution_candidate
+    print(f"test: {test}")
     solution_candidate_schedules_sum = solution_candidate_schedules[0]
-    print(0, solution_candidate_schedules[0])
     for i, solution_candidate_schedule in enumerate(solution_candidate_schedules):
         if i > 0:
-            print(i, solution_candidate_schedule)
+            print(f"agent{i}: {solution_candidate_schedule}")
             solution_candidate_schedules_sum += solution_candidate_schedule
     soll = EnergySchedules(dict_schedules={'power': power_target, 'heat': heat_target})
     print(f'SOLL:\t{soll}')
@@ -210,18 +213,18 @@ def print_test(tests):
 
 """ large test"""
 start = 0
-end = 92
+end = 96
 asyncio.run(test_case(
     # power_target=[0, 0, 0, 0, 0, 520, 520, 520, 620, 720, 820, 3200, 4200, 5200, 8500, 12520, 8520, 4420, 2520, 1520, 520, 520, 520, 520, 80, 130, 220, 280, 470, 400, 440, 550, 570, 820, 900, 1010, 1230, 1520, 2400, 3000, 3400, 3800, 4200, 4600, 5000, 5400, 4800, 6000, 6100, 6200, 6300, 6400, 6400, 6400, 6500, 6600, 6600, 6500, 6500, 6500, 6400, 6100, 6100, 6200, 6100, 5800, 5600, 5100, 4200, 4600, 4700, 3300, 3300, 1860, 1270, 820, 540, 376, 220, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520][start:end],
-    power_target=[500, 520, 520, 520, 520, 520, 520, 520, 620, 720, 820, 3200, 4200, 5200, 8500, 12520, 8520, 4420, 2520, 1520, 520, 520, 520, 520, 80, 130, 220, 280, 470, 400, 440, 550, 570, 820, 900, 1010, 1230, 1520, 2400, 3000, 3400, 3800, 4200, 4600, 5000, 5400, 4800, 6000, 6100, 6200, 6300, 6400, 6400, 6400, 6500, 6600, 6600, 6500, 6500, 6500, 6400, 6100, 6100, 6200, 6100, 5800, 5600, 5100, 4200, 4600, 4700, 3300, 3300, 1860, 1270, 820, 540, 376, 220, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520][start:end],
-    # heat_target=[600, 520, 520, 520, 520, 0, 0, 0, 0, 0, 820, 3200, 4200, 5200, 8500, 12520, 8520, 4420, 2520, 1520, 520, 520, 520, 520, 80, 130, 220, 280, 470, 400, 440, 550, 570, 820, 900, 1010, 1230, 1520, 2400, 3000, 3400, 3800, 4200, 4600, 5000, 5400, 4800, 6000, 6100, 6200, 6300, 6400, 6400, 6400, 6500, 6600, 6600, 6500, 6500, 6500, 6400, 6100, 6100, 6200, 6100, 5800, 5600, 5100, 4200, 4600, 4700, 3300, 3300, 1860, 1270, 820, 540, 376, 220, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520][start:end],
-    heat_target=[6.00, 5.20, 5.20, 5.20, 5.20, 5.20, 5.20, 5.20, 6.20, 7.20, 8.20, 32.00, 42.00, 52.00, 85.00, 125.20, 85.20, 44.20, 25.20, 15.20, 5.20, 5.20, 5.20, 5.20, .80, 1.30, 2.20, 2.80, 4.70, 4.00, 4.40, 5.50, 5.70, 8.20, 9.00, 10.10, 12.30, 15.20, 24.00, 30.00, 34.00, 38.00, 42.00, 46.00, 50.00, 54.00, 48.00, 60.00, 61.00, 62.00, 63.00, 64.00, 64.00, 64.00, 65.00, 66.00, 66.00, 65.00, 65.00, 65.00, 64.00, 61.00, 61.00, 62.00, 61.00, 58.00, 56.00, 51.00, 42.00, 46.00, 47.00, 33.00, 33.00, 18.60, 12.70, 8.20, 5.40, 3.76, 2.20, 5.20, 5.20, 5.20, 5.20, 5.20, 5.20, 5.20, 5.20, 5.20, 5.20, 5.20, 5.20, 5.20, 5.20, 5.20, 5.20, 5.20][start:end],
+    power_target=[500, 520, 520, 520, 520, 520, 520, 520, 620, 720, 820, 3200, 4200, 5200, 8500, 12520, 8520, 4420, 2520, 1520, 520, 520, 520, 520, 80, 130, 220, 280, 470, 400, 440, 550, 570, 820, 900, 1010, 1230, 1520, 2400, 3000, 3400, 3800, 4200, 4600, 5000, 5400, 4800, 6000, 6100, 6200, 6300, 6400, 6400, 6400, 6500, 6600, 6600, 6500, 6500, 6500, 6400, 6100, 6100, 6200, 6100, 5800, 5600, 5100, 4200, 4600, 4700, 3300, 3300, 1860, 1270, 820, 540, 376, 220, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 5200][start:end],
+    # heat_target=[600, 520, 520, 520, 520, 0, 0, 0, 0, 0, 820, 3200, 4200, 5200, 8500, 12520, 8520, 4420, 2520, 1520, 520, 520, 520, 520, 80, 130, 220, 280, 470, 400, 440, 550, 570, 820, 900, 1010, 1230, 1520, 2400, 3000, 3400, 3800, 4200, 4600, 5000, 5400, 4800, 6000, 6100, 6200, 6300, 6400, 6400, 6400, 6500, 6600, 6600, 6500, 6500, 6500, 6400, 6100, 6100, 6200, 6100, 5800, 5600, 5100, 4200, 4600, 4700, 3300, 3300, 1860, 1270, 820, 540, 376, 220, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 5200][start:end],
+    heat_target=[600, 520, 520, 520, 520, 520, 520, 520, 620, 720, 820, 3200, 4200, 5200, 8500, 12520, 8520, 4420, 2520, 1520, 520, 520, 520, 520, 80, 130, 220, 280, 470, 400, 440, 550, 570, 820, 900, 1010, 1230, 1520, 2400, 3000, 3400, 3800, 4200, 4600, 5000, 5400, 4800, 6000, 6100, 6200, 6300, 6400, 6400, 6400, 6500, 6600, 6600, 6500, 6500, 6500, 6400, 6100, 6100, 6200, 6100, 5800, 5600, 5100, 4200, 4600, 4700, 3300, 3300, 1860, 1270, 820, 540, 376, 220, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520][start:end],
     value_weights=[
-        {'power_penalty': 2, 'heat_penalty': 2, 'gas_price': 0.07, 'power_kwh_price': 1, 'heat_kwh_price': 1, 'converted_price': .8, 'convert_amount': 100, 'max_gas_amount': 100, 'gas_to_heat_factor': .5, 'gas_to_power_factor': .5, 'power_to_heat_factor': .9, 'power_to_heat_amount': 7},
-        {'power_penalty': 2, 'heat_penalty': 2, 'gas_price': 0.07, 'power_kwh_price': 1, 'heat_kwh_price': 1, 'converted_price': .8, 'convert_amount': 100, 'max_gas_amount': 100, 'gas_to_heat_factor': .5, 'gas_to_power_factor': .5, 'power_to_heat_factor': .9, 'power_to_heat_amount': 7},
-        {'power_penalty': 2, 'heat_penalty': 2, 'gas_price': 0.07, 'power_kwh_price': 1, 'heat_kwh_price': 1, 'converted_price': .8, 'convert_amount': 100, 'max_gas_amount': 100, 'gas_to_heat_factor': .5, 'gas_to_power_factor': .5, 'power_to_heat_factor': .9, 'power_to_heat_amount': 7},
-        {'power_penalty': 2, 'heat_penalty': 2, 'gas_price': 0.07, 'power_kwh_price': 1, 'heat_kwh_price': 1, 'converted_price': .8, 'convert_amount': 100, 'max_gas_amount': 100, 'gas_to_heat_factor': .5, 'gas_to_power_factor': .5, 'power_to_heat_factor': .9, 'power_to_heat_amount': 7},
-        {'power_penalty': 2, 'heat_penalty': 2, 'gas_price': 0.17, 'power_kwh_price': 1, 'heat_kwh_price': 1, 'converted_price': .8, 'convert_amount': 100, 'max_gas_amount': 100, 'gas_to_heat_factor': .5, 'gas_to_power_factor': .5, 'power_to_heat_factor': .9, 'power_to_heat_amount': 7},
+        {'power_penalty': 100, 'heat_penalty': 2, 'gas_price': 0.07, 'power_kwh_price': 1, 'heat_kwh_price': 1, 'converted_price': .8, 'convert_amount': 100, 'max_gas_amount': 100, 'gas_to_heat_factor': .5, 'gas_to_power_factor': .5, 'power_to_heat_factor': .9, 'power_to_heat_amount': 7},
+        {'power_penalty': 100, 'heat_penalty': 2, 'gas_price': 0.07, 'power_kwh_price': 1, 'heat_kwh_price': 1, 'converted_price': .8, 'convert_amount': 100, 'max_gas_amount': 100, 'gas_to_heat_factor': .5, 'gas_to_power_factor': .5, 'power_to_heat_factor': .9, 'power_to_heat_amount': 7},
+        {'power_penalty': 100, 'heat_penalty': 2, 'gas_price': 0.07, 'power_kwh_price': 1, 'heat_kwh_price': 1, 'converted_price': .8, 'convert_amount': 100, 'max_gas_amount': 100, 'gas_to_heat_factor': .5, 'gas_to_power_factor': .5, 'power_to_heat_factor': .9, 'power_to_heat_amount': 7},
+        {'power_penalty': 100, 'heat_penalty': 2, 'gas_price': 0.07, 'power_kwh_price': 1, 'heat_kwh_price': 1, 'converted_price': .8, 'convert_amount': 100, 'max_gas_amount': 100, 'gas_to_heat_factor': .5, 'gas_to_power_factor': .5, 'power_to_heat_factor': .9, 'power_to_heat_amount': 7},
+        {'power_penalty': 100, 'heat_penalty': 2, 'gas_price': 0.17, 'power_kwh_price': 1, 'heat_kwh_price': 1, 'converted_price': .8, 'convert_amount': 100, 'max_gas_amount': 100, 'gas_to_heat_factor': .5, 'gas_to_power_factor': .5, 'power_to_heat_factor': .9, 'power_to_heat_amount': 7},
     ],
     schedules_provider=[[[100, 104, 112, 111, 112, 107, 104, 110, 135, 157, 166, 688, 880, 1062, 1783, 2506, 1746, 901, 517, 309, 111, 107, 107, 107, 16, 28, 48, 60, 96, 84, 91, 112, 118, 165, 183, 219, 263, 310, 502, 601, 743, 807, 854, 975, 1044, 1135, 1020, 1314, 1331, 1295, 1344, 1354, 1312, 1295, 1396, 1370, 1380, 1388, 1346, 1359, 1299, 1322, 1323, 1316, 1251, 1263, 1149, 1065, 885, 997, 1021, 682, 714, 401, 260, 174, 117, 78, 48, 113, 110, 105, 113, 108, 106, 105, 111, 107, 112, 107, 114, 113, 113, 110, 112, 112][start:end],
                          [101, 104, 105, 112, 110, 112, 108, 113, 127, 155, 176, 669, 908, 1065, 1765, 2684, 1853, 961, 550, 325, 107, 106, 104, 112, 16, 28, 44, 60, 103, 81, 93, 118, 117, 174, 193, 204, 266, 326, 483, 622, 722, 826, 910, 938, 1071, 1120, 1005, 1266, 1244, 1318, 1359, 1378, 1330, 1338, 1340, 1394, 1371, 1389, 1377, 1309, 1360, 1326, 1239, 1348, 1328, 1189, 1180, 1120, 843, 956, 966, 703, 661, 400, 278, 166, 118, 78, 44, 109, 106, 111, 108, 106, 107, 112, 106, 105, 111, 111, 114, 113, 106, 111, 112, 106][start:end]],
