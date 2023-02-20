@@ -9,6 +9,7 @@ from mango_library.negotiation.termination import NegotiationTerminationRole
 
 addr = ('127.0.0.2', 5557)
 
+
 async def test_case(power_target, heat_target, value_weights, schedules_provider):
     # logging.basicConfig(level=logging.INFO)
     # logging.info('Läuft bei Dir.')
@@ -21,7 +22,7 @@ async def test_case(power_target, heat_target, value_weights, schedules_provider
         value_weight["global_start_time"] = global_start_time
         open_value_weights.append({'power_kwh_price': value_weight["power_kwh_price"], 'converted_price': value_weight["converted_price"]})
 
-    # create agents
+    " create agents "
     agents = []
     addrs = []
     for i, _ in enumerate(schedules_provider):
@@ -29,7 +30,6 @@ async def test_case(power_target, heat_target, value_weights, schedules_provider
         cohda_role = COHDARole(schedules_provider[i], value_weights[i], open_value_weights, lambda s: True)
         a.add_role(cohda_role)
         if i == 0:
-            # CohdaNegotiationStarterRole(targets, weights)
             a.add_role(CohdaNegotiationStarterRole(({'power': np.array(power_target), 'heat': np.array(heat_target)}, np.ones(len(schedules_provider[0][0])))))
         a.add_role(NegotiationTerminationRole(i == 0))
         agents.append(a)
@@ -47,30 +47,25 @@ async def test_case(power_target, heat_target, value_weights, schedules_provider
                 print(False, f'check_inbox terminated unexpectedly.')
 
     await asyncio.sleep(.4)
-    # await asyncio.wait_for(wait_for_coalition_built(agents), timeout=1E0)
     await asyncio.wait_for(wait_for_term(agents), timeout=1E10)
 
-    # gracefully shutdown
+    " gracefully shutdown "
     for a in agents:
         await a.shutdown()
     await c.shutdown()
 
-    print(f"{format((time.time() - global_start_time), '.3f')}s")
-
-    solution_candidate_schedules = np.array(list(
-        map(lambda item: item[1], agents[0].roles[0]._cohda[coal_id]._memory.solution_candidate.schedules.items())))
-
-    target_schedule = EnergySchedules(dict_schedules={'power': np.array(power_target), 'heat': np.array(heat_target)})
-    print(f"target_schedule: {target_schedule}")
-
+    print()
+    " calc best_energy_schedules "
     best_energy_schedules = None
     best_energy_schedules_perf = float("-inf")
     for agent in agents:
         energy_schedules = agent.roles[0]._cohda[coal_id]._best_solution_candidate
-        print(f"{agent.aid} - perf: {energy_schedules.perf}")
+        print(f"{agent.aid} - perf: {np.round(energy_schedules.perf, 2)}")
         if best_energy_schedules is None or energy_schedules.perf < best_energy_schedules_perf:
             best_energy_schedules = energy_schedules
             best_energy_schedules_perf = energy_schedules.perf
+
+    " print "
     print(f"BEST: {best_energy_schedules}")
     soll = EnergySchedules(dict_schedules={'power': power_target, 'heat': heat_target})
     print(f'SOLL:\t{soll}')
@@ -79,18 +74,6 @@ async def test_case(power_target, heat_target, value_weights, schedules_provider
     diff = ist - soll
     print(f'DIFF:\t{diff}')
     return {'ziel': soll, 'ist': ist, 'time': time.time() - global_start_time}
-
-
-async def wait_for_coalition_built(agents):
-    not_empty = True
-    while not_empty:
-        for agent in agents:
-            if agent.inbox.empty():
-                not_empty = False
-        for agent in agents:
-            if not agent.inbox.empty():
-                not_empty = True
-        await asyncio.sleep(0.01)
 
 
 async def wait_for_term(agents):
@@ -104,32 +87,13 @@ async def wait_for_term(agents):
     negotiation_termination_controller_role = get_negotiation_termination_controller_role()
     await asyncio.sleep(.1)
     i = 0
-    # verlauf = ""
     while i < len(agents):
-        # TODO is wait_for_term correct?
-        # verlauf += f"{i}"
-        # print(verlauf)
-        # while not agent.inbox.empty() or next(iter(negotiation_termination_controller_role._weight_map.values())) != 1:
-        # print(f"_weight_map.values() {float(list(negotiation_termination_controller_role._weight_map.values())[0])}")
-        # print(f"_weight_map.values() {float(next(iter(negotiation_termination_controller_role._weight_map.values())))}")
-        # if next(iter(negotiation_termination_controller_role._weight_map.values())) == 1:
-        # if agents[i].inbox.empty():
         if agents[i].inbox.empty() or float(next(iter(negotiation_termination_controller_role._weight_map.values()))) == 1:
             i += 1
         else:
             i = 0
             await asyncio.sleep(0.1)
-    # print("DONE")
 
-
-# :param kwh_price: Price for selling one kWh
-# :param convert_amount: Possible amount kWh for convert
-# :param converted_price: Price for selling one converted kWh
-
-# best_schedule = np.array([5, 4, 3])
-# open_convert_amount = np.array([3, 4, 5])
-# test = [min(best_schedule[i], open_convert_amount[i]) for i, _ in enumerate(best_schedule)]
-# print(test)
 
 def print_test(tests):
     test_groups = []
@@ -147,7 +111,7 @@ def print_test(tests):
             f"{test_group['count']}x {test_group['ist']} min:{format(np.min(test_group['time']) * 1000, '.3f')}ms median:{format(np.median(test_group['time']) * 1000, '.3f')}ms mean:{format(np.mean(test_group['time']) * 1000, '.3f')}ms max:{format(np.max(test_group['time']) * 1000, '.3f')}ms")
 
 
-""" mini test """
+" mini test "
 # test_start_time = time.time()
 # tests = []
 # done = 0

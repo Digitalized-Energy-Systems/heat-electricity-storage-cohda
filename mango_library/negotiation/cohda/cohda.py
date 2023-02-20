@@ -8,7 +8,6 @@ from copy import copy
 from typing import List, Dict, Any, Tuple, Optional, Callable
 
 import numpy as np
-import pandas as pd
 from mango.messages.codecs import json_serializable
 
 from mango_library.coalition.core import CoalitionAssignment
@@ -27,10 +26,6 @@ printarray = [
     "-open_schedule",
     "-max_value_schedules",
 ]
-pd.set_option('display.width', None)
-pd.set_option('display.max_rows', 10)
-pd.options.display.float_format = '{:,.0f}'.format
-pd.set_option('display.colheader_justify', 'center')
 
 
 class Colors:
@@ -146,7 +141,8 @@ class CohdaNegotiationStarterRole(NegotiationStarterRole):
     """Convenience role for starting a COHDA negotiation with simply providing a target schedule
     """
 
-    # create an empyt Working memory and send it together with the target params
+    " create an empyt Working memory and send it together with the target params "
+
     def __init__(self, target_params, coalition_model_matcher=None, coalition_uuid=None) -> None:
         """
 
@@ -180,7 +176,7 @@ class COHDA:
         self._convert_amount = np.array([value_weights['convert_amount']] * len(schedule_provider[0]))
         self._value_weights = value_weights
         self._open_value_weights = open_value_weights
-        # TODO perf_func needed?
+        # TODO perf_func not needed anymore
         if perf_func is None:
             self._perf_func = self.deviation_to_target_schedule
         else:
@@ -222,10 +218,10 @@ class COHDA:
         old_sysconf = self._memory.system_config
         old_candidate = self._memory.solution_candidate
 
-        # perceive
+        " perceive "
         sysconf, candidate = self._perceive(messages)
 
-        # decide
+        " decide "
         if sysconf is not old_sysconf or candidate is not old_candidate:
             sysconf, candidate = self._decide(sysconfig=sysconf, candidate=candidate)
             global best_perf
@@ -233,12 +229,14 @@ class COHDA:
             global best_counter_end
             best_counter += 1
             candidate_copy = copy(candidate)
+            new_best_counter = False
             if self._part_id not in best_perf.keys() or \
                     best_perf[self._part_id].perf > candidate.perf or \
                     len(best_perf[self._part_id].schedules) < len(candidate.schedules):
                 self._best_solution_candidate = candidate_copy
                 best_perf[self._part_id] = candidate_copy
                 best_counter = 0
+                new_best_counter = True
             min_perf = float("inf")
             max_perf = 0
             for best_perf_keys in best_perf.keys():
@@ -252,12 +250,17 @@ class COHDA:
                 best_counter_end = True
             if best_counter_end:
                 print(Colors.BOLD, end="")
-            print(f"{self._part_id}: new:{format(candidate_copy.perf, '.3f')} - {format(min_perf, '.0f')}-{format(max_perf, '.0f')} - {format((time.time() - global_start_time), '.3f')}s - diff:{np.round(diff, 3)} - {best_counter}")
-            if best_counter_end:
-                print(Colors.RESET_ALL, end="")
+            if not (new_best_counter or best_counter_end):
+                if best_counter == 1:
+                    print()
+                print(".", end="")
+                # logging.debug(f"{self._part_id}: new:{format(candidate_copy.perf, '.3f')} - {format(min_perf, '.0f')}-{format(max_perf, '.0f')} - {format((time.time() - global_start_time), '.3f')}s - diff:{np.round(diff, 3)} - {best_counter}")
+            else:
+                print(f"\n{self._part_id}: new:{format(candidate_copy.perf, '.3f')} - {format(min_perf, '.0f')}-{format(max_perf, '.0f')} - {format((time.time() - global_start_time), '.3f')}s - diff:{np.round(diff, 3)}", end="")
+            print(Colors.RESET_ALL, end="")
             if best_counter_end:
                 return None
-            # act
+            " act "
             return self._act(new_sysconfig=sysconf, new_candidate=candidate)
         else:
             return None
@@ -272,48 +275,41 @@ class COHDA:
         current_candidate = None
         for message in messages:
             if self._memory.target_params is None:
-                # get target parameters if not known
+                " get target parameters if not known "
                 self._memory.target_params = message.working_memory.target_params
 
             if current_sysconfig is None:
                 if self._part_id not in self._memory.system_config.schedule_choices:
-                    # if you have not yet selected any schedule in the sysconfig, choose any to start with
+                    " if you have not yet selected any schedule in the sysconfig, choose any to start with "
                     schedule_choices = self._memory.system_config.schedule_choices
                     self._counter += 1
                     schedule_choices[self._part_id] = ScheduleSelection(self._schedule_provider[0], self._counter)
-                    # we need to create a new class of Systemconfig so the updates are
-                    # recognized in handle_cohda_msgs()
+                    " we need to create a new class of Systemconfig so the updates are "
+                    " recognized in handle_cohda_msgs() "
                     current_sysconfig = SystemConfig(schedule_choices=schedule_choices)
                 else:
                     current_sysconfig = self._memory.system_config
 
             if current_candidate is None:
                 if self._part_id not in self._memory.solution_candidate.schedules:
-                    # if you have not yet selected any schedule in the sysconfig, choose any to start with
+                    " if you have not yet selected any schedule in the sysconfig, choose any to start with "
                     schedules = self._memory.solution_candidate.schedules
                     schedules[self._part_id] = self._schedule_provider[0]
-                    # we need to create a new class of SolutionCandidate so the updates are
-                    # recognized in handle_cohda_msgs()
+                    " we need to create a new class of SolutionCandidate so the updates are "
+                    " recognized in handle_cohda_msgs() "
                     current_candidate = SolutionCandidate(agent_id=self._part_id, schedules=schedules)
-                    # print("270: current_candidate.cluster_schedule", current_candidate)
-                    # current_candidate.perf = self._perf_func(current_candidate,
-                    #                                          self._memory.target_params, self._value_weights)
                 else:
                     current_candidate = self._memory.solution_candidate
 
             new_sysconf = message.working_memory.system_config
             new_candidate = message.working_memory.solution_candidate
 
-            # Merge new information into current_sysconfig and current_candidate
-            # print(current_sysconfig)
+            " Merge new information into current_sysconfig and current_candidate "
             current_sysconfig = self._merge_sysconfigs(sysconfig_i=current_sysconfig, sysconfig_j=new_sysconf)
-            # print(current_sysconfig)
             current_candidate = self._merge_candidates(candidate_i=current_candidate,
                                                        candidate_j=new_candidate,
                                                        agent_id=self._part_id,
-                                                       perf_func=self._perf_func,
-                                                       target_params=self._memory.target_params,
-                                                       value_weights=self._value_weights)
+                                                       perf_func=self._perf_func)
 
         return current_sysconfig, current_candidate
 
@@ -350,8 +346,8 @@ class COHDA:
                 schedule_with_max_values = []
                 for timestamp, _ in enumerate(list(energy_schedule.dict_schedules.values())[0]):
                     max_gas_amount = self._value_weights['max_gas_amount']
-                    fixed_values = {'heat_open': np.max([open_schedule.dict_schedules['heat'][timestamp],0]),
-                                    'power_open': np.max([open_schedule.dict_schedules['power'][timestamp],0]),
+                    fixed_values = {'heat_open': np.max([open_schedule.dict_schedules['heat'][timestamp], 0]),
+                                    'power_open': np.max([open_schedule.dict_schedules['power'][timestamp], 0]),
                                     'power_schedule_timestamp': energy_schedule.dict_schedules['power'][timestamp]}
                     old_gas_amount = 0
                     if candidate.schedules[self._part_id] and 'gas_amount' in candidate.schedules[self._part_id].dict_schedules.keys() and candidate.schedules[self._part_id].dict_schedules['gas_amount'][timestamp]:
@@ -368,7 +364,6 @@ class COHDA:
                         list_of_outputs.append(self.test_gas_amount(int(max_gas_amount * 1), fixed_values))
                         while len(list_of_outputs) < min(10, max_gas_amount):
                             list_of_outputs.sort(key=lambda x: [x['value'], -x['gas_amount']], reverse=True)
-                            # list_of_outputs[0] = max(list_of_outputs, key=lambda item: item['value'])
                             less_value_objects = list(filter(lambda x: (x['gas_amount'] < list_of_outputs[0]['gas_amount']), list_of_outputs))
                             if less_value_objects:
                                 less_value_object = max(less_value_objects, key=lambda item: item['value'])
@@ -405,12 +400,13 @@ class COHDA:
         schedule_in_candidate = current_best_candidate.schedules.get(self._part_id, None)
         schedule_choice_in_sysconfig = sysconfig.schedule_choices.get(self._part_id, None)
 
-        if schedule_choice_in_sysconfig is None or \
-                not np.array_equal(schedule_in_candidate, schedule_choice_in_sysconfig.energy_schedules):
-            # update Sysconfig if your schedule in the current sysconf is different to the one in the candidate
+        # if schedule_choice_in_sysconfig is None or \
+        #         not np.array_equal(schedule_in_candidate, schedule_choice_in_sysconfig.energy_schedules):
+        if schedule_choice_in_sysconfig is None or schedule_in_candidate is not schedule_choice_in_sysconfig.energy_schedules:
+            " update Sysconfig if your schedule in the current sysconf is different to the one in the candidate "
             sysconfig.schedule_choices[self._part_id] = ScheduleSelection(
                 energy_schedules=schedule_in_candidate, counter=self._counter + 1)
-            # update counter
+            " update counter "
             self._counter += 1
 
         current_best_candidate.perf = current_best_candidate.to_energy_schedules().get_perf(target_schedule)
@@ -424,7 +420,7 @@ class COHDA:
         gas_to_heat = gas_amount * self._value_weights['gas_to_heat_factor']
         max_power_to_power_to_heat = np.min([self._value_weights['power_to_heat_amount'],
                                              fixed_values['power_schedule_timestamp'] + gas_to_power - fixed_values['power_open']])
-        max_heat_in_power_to_heat = np.max([(fixed_values['heat_open'] - gas_to_heat) / self._value_weights['power_to_heat_factor'],0])
+        max_heat_in_power_to_heat = np.max([(fixed_values['heat_open'] - gas_to_heat) / self._value_weights['power_to_heat_factor'], 0])
         power_to_heat = np.max([np.min([max_power_to_power_to_heat, max_heat_in_power_to_heat]), 0])
         power_to_conversion = np.min([np.max([fixed_values['power_schedule_timestamp'] + gas_to_power - power_to_heat - fixed_values['power_open'], 0]), self._value_weights['converted_price']])
         end_power = fixed_values['power_schedule_timestamp'] + gas_to_power - power_to_heat - power_to_conversion
@@ -443,11 +439,11 @@ class COHDA:
         :param new_candidate: The SolutionCandidate as a result from perceive and decide
         :return: The COHDA message that should be sent
         """
-        # update memory
+        " update memory "
         self._memory.system_config = new_sysconfig
         self._memory.solution_candidate = new_candidate
 
-        # return COHDA message
+        " return COHDA message "
         return CohdaMessage(working_memory=self._memory)
 
     @staticmethod
@@ -468,17 +464,15 @@ class COHDA:
         modified = False
 
         for i, a in enumerate(sorted(key_set_i | key_set_j)):
-            # An a might be in key_set_i, key_set_j or in both!
+            " An a might be in key_set_i, key_set_j or in both! "
             if a in key_set_i and \
                     (a not in key_set_j or sysconfig_i_schedules[a].counter >= sysconfig_j_schedules[a].counter):
-                # Use data of sysconfig_i
+                " Use data of sysconfig_i "
                 schedule_selection = sysconfig_i_schedules[a]
-                # print(a, sysconfig_i_schedules[a].counter, "key_set_i", schedule_selection)
             else:
-                # Use data of sysconfig_j
+                " Use data of sysconfig_j "
                 schedule_selection = sysconfig_j_schedules[a]
                 modified = True
-                # print(a, sysconfig_j_schedules[a].counter, "key_set_j", schedule_selection)
 
             new_sysconfig[a] = schedule_selection
 
@@ -491,7 +485,7 @@ class COHDA:
 
     @staticmethod
     def _merge_candidates(candidate_i: SolutionCandidate, candidate_j: SolutionCandidate,
-                          agent_id: str, perf_func: Callable, target_params, value_weights):
+                          agent_id: str, perf_func: Callable):
         """
         Returns a merged Candidate. If the candidate_i remains unchanged, the same instance of candidate_i is
         returned, otherwise a new object is created with agent_id as candidate.agent_id
@@ -499,7 +493,6 @@ class COHDA:
         :param candidate_j: The second candidate
         :param agent_id: The agent_id that defines who is the creator of a new candidate
         :param perf_func: The performance function
-        :param target_params: The current target parameters (e. g. a target schedule)
         :return:  A merged SolutionCandidate. If the candidate_i remains unchanged, the same instance of candidate_i is
         returned, otherwise a new object is created.
         """

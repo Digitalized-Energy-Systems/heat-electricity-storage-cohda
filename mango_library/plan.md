@@ -307,4 +307,7 @@ OUTPUT: [10  9]*1(3 4)*0.8
 
 2023-02-14
 - wie perf vergleichen?
-  - jeder speichert sein perf wert in sein 
+  - jeder speichert sein perf wert in sein
+
+2023-02-20
+- deviation_to_target_schedule wieder nutzen?
