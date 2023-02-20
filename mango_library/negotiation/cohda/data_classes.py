@@ -42,7 +42,6 @@ class EnergySchedules:
         return False
 
     def __add__(self, o: object):
-        # TODO Alle Keys übernehmen und nicht nur die gleichen
         if isinstance(o, EnergySchedules):
             dict_schedules = self.dict_schedules.copy()
             for dict_key in o.dict_schedules.keys():
@@ -54,7 +53,7 @@ class EnergySchedules:
             if self.perf is not None and o.perf is not None:
                 perf = self.perf - o.perf
             return EnergySchedules(dict_schedules=dict_schedules, perf=perf)
-        # TODO throw Exception(__add__)?
+        # TODO throw Exception(__add__)
         return self
 
     def __sub__(self, o: object):
@@ -67,20 +66,13 @@ class EnergySchedules:
             if self.perf is not None and o.perf is not None:
                 perf = self.perf - o.perf
             return EnergySchedules(dict_schedules=dict_schedules, perf=perf)
-        # TODO throw Exception(__sub__)?
+        # TODO throw Exception(__sub__)
         return self
 
     def sum(self):
         result = {}
         for dict_key in self.dict_schedules.keys():
             result[dict_key] = np.sum(self.dict_schedules[dict_key])
-        return result
-
-    def get_perf(self, target_schedule) -> float:
-        result = 0
-        for dict_key in target_schedule.dict_schedules.keys():
-            test = np.abs(np.subtract(target_schedule.dict_schedules[dict_key], self.dict_schedules[dict_key]))
-            result += np.sum(test)
         return result
 
     @property

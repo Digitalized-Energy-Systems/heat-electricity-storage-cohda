@@ -176,9 +176,8 @@ class COHDA:
         self._convert_amount = np.array([value_weights['convert_amount']] * len(schedule_provider[0]))
         self._value_weights = value_weights
         self._open_value_weights = open_value_weights
-        # TODO perf_func not needed anymore
         if perf_func is None:
-            self._perf_func = self.deviation_to_target_schedule
+            self._perf_func = self.get_perf
         else:
             self._perf_func = perf_func
 
@@ -207,6 +206,14 @@ class COHDA:
         # if cluster_schedule.size == 0:
         #     return float('-inf')
         return target_schedule.sum()
+
+    @staticmethod
+    def get_perf(energy_schedules, target_schedule) -> float:
+        result = 0
+        for dict_key in target_schedule.dict_schedules.keys():
+            test = np.abs(np.subtract(target_schedule.dict_schedules[dict_key], energy_schedules.dict_schedules[dict_key]))
+            result += np.sum(test)
+        return result
 
     def handle_cohda_msgs(self, messages: List[CohdaMessage]) -> Optional[CohdaMessage]:
         """
@@ -409,7 +416,7 @@ class COHDA:
             " update counter "
             self._counter += 1
 
-        current_best_candidate.perf = current_best_candidate.to_energy_schedules().get_perf(target_schedule)
+        current_best_candidate.perf = self._perf_func(current_best_candidate.to_energy_schedules(), target_schedule)
         if test_print("start _decide"):
             self.print_color("end _decide", Colors.BACKGROUND_LIGHT_MAGENTA)
 
