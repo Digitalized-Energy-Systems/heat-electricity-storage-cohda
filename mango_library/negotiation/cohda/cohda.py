@@ -260,10 +260,10 @@ class COHDA:
                 print(Colors.BOLD, end="")
             if not (new_best_counter or best_counter_end):
                 if best_counter == 1:
-                    print(f"\n\t1:", end=" ")
+                    print(f"\n\t1/{maximum_agent_attempts}:", end=" ")
                 print(".", end="")
                 if best_counter % len(candidate.schedules) == 0:
-                    print(f"\n\t{int(best_counter / len(candidate.schedules))+1}:", end=" ")
+                    print(f"\n\t{int(best_counter / len(candidate.schedules))+1}/{maximum_agent_attempts}:", end=" ")
                 # logging.debug(f"{self._part_id}: new:{format(candidate_copy.perf, '.3f')} - {format(min_perf, '.0f')}-{format(max_perf, '.0f')} - {format((time.time() - global_start_time), '.3f')}s - diff:{np.round(diff, 3)} - {best_counter}")
             elif new_best_counter:
                 print(f"\n{self._part_id}: {format(old_perf, '.1f')}->{format(candidate_copy.perf, '.1f')} - {format(min_perf, '.0f')}-{format(max_perf, '.0f')} - {format((time.time() - global_start_time), '.3f')}s - diff:{np.round(diff, 3)}", end="")
