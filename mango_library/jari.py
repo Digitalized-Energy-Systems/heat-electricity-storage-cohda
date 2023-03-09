@@ -24,19 +24,15 @@ async def test_case(power_target, heat_target, value_weights, schedules_provider
     c = await Container.factory(addr=addr)
 
     global_start_time = time.time()
-    open_value_weights = []
     for value_weight in value_weights:
         value_weight["global_start_time"] = global_start_time
-        # TODO Wird es noch gebraucht?
-        # open_value_weights.append({'power_kwh_price': value_weight["power_kwh_price"], 'converted_price': value_weight["converted_price"]})
 
     " create agents "
     agents = []
     addrs = []
     for i, _ in enumerate(schedules_provider):
         a = RoleAgent(c)
-        # TODO open_value_weights entfernen
-        cohda_role = COHDARole(schedules_provider[i], value_weights[i], open_value_weights, lambda s: True)
+        cohda_role = COHDARole(schedules_provider[i], value_weights[i], lambda s: True)
         a.add_role(cohda_role)
         if i == 0:
             a.add_role(CohdaNegotiationStarterRole(({'power': np.array(power_target), 'heat': np.array(heat_target)}, np.ones(len(schedules_provider[0][0])))))

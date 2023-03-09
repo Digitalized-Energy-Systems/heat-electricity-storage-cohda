@@ -21,7 +21,6 @@ logging.basicConfig(level=logging.CRITICAL)
 # logging.basicConfig(level=logging.DEBUG)
 
 printarray = [
-    "-start_values",
     "-start _decide",
     "-open_schedule",
     "-max_value_schedules",
@@ -166,7 +165,7 @@ class COHDA:
     """COHDA-decider
     """
 
-    def __init__(self, schedule_provider, is_local_acceptable, part_id: str, value_weights, open_value_weights, perf_func=None):
+    def __init__(self, schedule_provider, is_local_acceptable, part_id: str, value_weights, perf_func=None):
         self._schedule_provider = [EnergySchedules(dict_schedules={'power': np.array(schedule), 'heat': np.array(schedule) * 0}) for schedule in schedule_provider]
         self._is_local_acceptable = is_local_acceptable
         self._memory = WorkingMemory(None, SystemConfig({}), SolutionCandidate(part_id, {}))
@@ -174,8 +173,6 @@ class COHDA:
         self._counter = 0
         self._part_id = part_id
         self._value_weights = value_weights
-        # TODO entfernen open_value_weights
-        self._open_value_weights = open_value_weights
         if perf_func is None:
             self._perf_func = self.get_perf
         else:
@@ -237,10 +234,13 @@ class COHDA:
             best_counter += 1
             candidate_copy = copy(candidate)
             new_best_counter = False
+            old_perf = float("inf")
             if self._part_id not in best_perf.keys() or \
                     best_perf[self._part_id].perf > candidate.perf or \
                     len(best_perf[self._part_id].schedules) < len(candidate.schedules):
                 self._best_solution_candidate = candidate_copy
+                if self._part_id in best_perf.keys() and best_perf[self._part_id].perf > candidate.perf:
+                    old_perf = best_perf[self._part_id].perf
                 best_perf[self._part_id] = candidate_copy
                 best_counter = 0
                 new_best_counter = True
@@ -253,18 +253,20 @@ class COHDA:
                     max_perf = best_perf[best_perf_keys].perf
             diff = max_perf - min_perf
             # TODO Optimal multiplication * 20
-            maximum_agent_attempts = 3
+            maximum_agent_attempts = 2
             if best_counter > len(best_perf) * maximum_agent_attempts:
                 best_counter_end = True
             if best_counter_end:
                 print(Colors.BOLD, end="")
             if not (new_best_counter or best_counter_end):
                 if best_counter == 1:
-                    print()
+                    print(f"\n\t1:", end=" ")
                 print(".", end="")
+                if best_counter % len(candidate.schedules) == 0:
+                    print(f"\n\t{int(best_counter / len(candidate.schedules))+1}:", end=" ")
                 # logging.debug(f"{self._part_id}: new:{format(candidate_copy.perf, '.3f')} - {format(min_perf, '.0f')}-{format(max_perf, '.0f')} - {format((time.time() - global_start_time), '.3f')}s - diff:{np.round(diff, 3)} - {best_counter}")
             elif new_best_counter:
-                print(f"\n{self._part_id}: new:{format(candidate_copy.perf, '.3f')} - {format(min_perf, '.0f')}-{format(max_perf, '.0f')} - {format((time.time() - global_start_time), '.3f')}s - diff:{np.round(diff, 3)}", end="")
+                print(f"\n{self._part_id}: {format(old_perf, '.1f')}->{format(candidate_copy.perf, '.1f')} - {format(min_perf, '.0f')}-{format(max_perf, '.0f')} - {format((time.time() - global_start_time), '.3f')}s - diff:{np.round(diff, 3)}", end="")
             elif best_counter_end:
                 print(f"\n{self._part_id}: {format(min_perf, '.0f')}-{format(max_perf, '.0f')} - {format((time.time() - global_start_time), '.3f')}s - diff:{np.round(diff, 3)}", end="")
             print(Colors.RESET_ALL, end="")
@@ -333,7 +335,7 @@ class COHDA:
         """
 
         if test_print("start _decide"):
-            self.print_color("start _decide", Colors.BACKGROUND_LIGHT_MAGENTA)
+            self.print_color("", Colors.BACKGROUND_LIGHT_MAGENTA)
 
         " calc power_open_schedule "
         # TODO use the weights in target_params
@@ -344,7 +346,6 @@ class COHDA:
         if test_print("open_schedule"):
             self.print_color(f"{Colors.BOLD}ZIEL:{Colors.RESET_ALL} {target_schedule}")
             self.print_color(f"{Colors.BOLD}open_schedule{Colors.RESET_ALL} {open_schedule}")
-            self.print_color(f"{Colors.BOLD}self._open_value_weights{Colors.RESET_ALL} {self._open_value_weights}")
 
         possible_schedules = self._schedule_provider
         current_best_candidate = candidate
@@ -408,7 +409,6 @@ class COHDA:
                 if new_candidate.perf > current_best_candidate.perf:
                     current_best_candidate = new_candidate
 
-        # TODO Ist das OPEN value überhaupt notwendig? wird es angeguckt?
         schedule_in_candidate = current_best_candidate.schedules.get(self._part_id, None)
         schedule_choice_in_sysconfig = sysconfig.schedule_choices.get(self._part_id, None)
 
@@ -422,8 +422,6 @@ class COHDA:
             self._counter += 1
 
         current_best_candidate.perf = self._perf_func(current_best_candidate.to_energy_schedules(), target_schedule)
-        if test_print("start _decide"):
-            self.print_color("end _decide", Colors.BACKGROUND_LIGHT_MAGENTA)
 
         return sysconfig, current_best_candidate
 
@@ -545,12 +543,11 @@ class COHDARole(NegotiationParticipant):
     """Negotiation role for COHDA.
     """
 
-    def __init__(self, schedules_provider, value_weights, open_value_weights, local_acceptable_func=None, check_inbox_interval: float = 0.1):
+    def __init__(self, schedules_provider, value_weights, local_acceptable_func=None, check_inbox_interval: float = 0.1):
         """
         Init of COHDARole
         :param schedules_provider: Function that takes not arguments and returns a list of schedules
         :param value_weights: own value_weights for calculation
-        :param open_value_weights: own open_value_weights visible for other agents
         :param local_acceptable_func: Function that takes a schedule as input and returns a boolean indicating,
         if the schedule is locally acceptable or not. Defaults to lambda x: True
         :param check_inbox_interval: Duration of buffering the cohda messages [s]
@@ -559,7 +556,6 @@ class COHDARole(NegotiationParticipant):
 
         self._schedules_provider = schedules_provider
         self._value_weights = value_weights
-        self._open_value_weights = open_value_weights
         if local_acceptable_func is None:
             self._is_local_acceptable = lambda x: True
         else:
@@ -575,17 +571,10 @@ class COHDARole(NegotiationParticipant):
         :param part_id: participant id
         :return: COHDA object
         """
-        if test_print("start_values"):
-            print(f"{part_id}: {self._schedules_provider}", end=" ")
-            print(f"kwh: {float(self._value_weights['power_kwh_price'])}€", end=" ")
-            print(f"convert: {self._value_weights['convert_amount']}x", end=" ")
-            print(f"{float(self._value_weights['converted_price'])}€", end=" ")
-            print()
         return COHDA(schedule_provider=self._schedules_provider,
                      is_local_acceptable=self._is_local_acceptable,
                      part_id=part_id,
                      value_weights=self._value_weights,
-                     open_value_weights=self._open_value_weights,
                      )
 
     async def on_stop(self) -> None:

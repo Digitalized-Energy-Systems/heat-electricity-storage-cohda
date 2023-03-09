@@ -196,6 +196,8 @@ class SolutionCandidate:
         if self._perf is None:
             perf = 0
             for key in self._schedules.keys():
+                if self._schedules[key].perf is None:
+                    return float("-inf")
                 perf += self._schedules[key].perf
             self._perf = perf
             # print(f"SolutionCandidate.perf (getter): {self._perf}")
