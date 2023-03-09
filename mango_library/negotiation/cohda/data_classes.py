@@ -5,6 +5,7 @@ Module that holds the data classes necessary for a COHDA negotiation
 from typing import Dict
 
 import numpy as np
+import pandas as pd
 from mango.messages.codecs import json_serializable
 
 
@@ -21,15 +22,21 @@ class EnergySchedules:
         """
         self._dict_schedules = dict_schedules
         self._perf = perf
+        # print(f"EnergySchedules.perf: {self._perf}")
 
     def __str__(self):
-        string = ""
-        # string += "EnergySchedules"
-        # if self.perf is not None: string += f" perf: {np.round(self.perf).astype(int)}"
-        for dict_key in self.dict_schedules.keys():
-            values = str(list(np.round(self.dict_schedules[dict_key], 2))).replace(', ', '\t')
-            string += f"\t\'{dict_key}\': {values}"
-        return string
+        data, columns = self.panda_data()
+        return str(pd.DataFrame(data=data, columns=columns))
+
+    def panda_data(self):
+        columns = list(self.dict_schedules.keys())
+        data = []
+        for i, _ in enumerate(self.dict_schedules[list(self.dict_schedules.keys())[0]]):
+            new_line = []
+            for column in columns:
+                new_line.append(self.dict_schedules[column][i])
+            data.append(new_line)
+        return data, columns
 
     def __eq__(self, o: object) -> bool:
         if isinstance(o, EnergySchedules):
@@ -125,8 +132,25 @@ class SolutionCandidate:
 
     def __str__(self):
         string = "SolutionCandidate perf: " + str(self.perf)
+        data = []
+        columns = []
         for schedule_keys in self.schedules.keys():
-            string += f"\n{schedule_keys} {self.schedules[schedule_keys]}"
+            new_data, new_columns = self.schedules[schedule_keys].panda_data()
+            for c, column in enumerate(new_columns):
+                if column in columns:
+                    c_index = columns.index(column)
+                    for d, dataVal in enumerate(new_data):
+                        data[d][c_index] = f"{data[d][c_index]} | {round(dataVal[c], 2)}"
+                else:
+                    columns.append(column)
+                    c_index = columns.index(column)
+                    for d, dataVal in enumerate(new_data):
+                        if len(data) <= d:
+                            data.append([])
+                        if len(data[d]) <= c_index:
+                            data[d].append([])
+                        data[d][c_index] = round(dataVal[c], 2)
+        string += f"\n{pd.DataFrame(data=data, columns=columns)}"
         return string
 
     def to_energy_schedules(self):
@@ -174,6 +198,7 @@ class SolutionCandidate:
             for key in self._schedules.keys():
                 perf += self._schedules[key].perf
             self._perf = perf
+            # print(f"SolutionCandidate.perf (getter): {self._perf}")
         return self._perf
 
     @perf.setter
@@ -182,7 +207,9 @@ class SolutionCandidate:
 
         :param new_perf: perf
         """
+        #TODO clear SolutionCandidate.perf & EnergySchedules.perf
         self._perf = new_perf
+        # print(f"SolutionCandidate.perf (setter): {self._perf}")
 
     @property
     def cluster_schedule(self) -> EnergySchedules:
