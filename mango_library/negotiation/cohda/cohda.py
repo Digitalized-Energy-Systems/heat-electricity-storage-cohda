@@ -3,6 +3,7 @@ integrate COHDA in the negotiation system and the core COHDA-decider together wi
 """
 import asyncio
 import logging
+import random
 import time
 from copy import copy
 from typing import List, Dict, Any, Tuple, Optional, Callable
@@ -355,36 +356,78 @@ class COHDA:
         for energy_schedule in possible_schedules:
             if self._is_local_acceptable(energy_schedule):
                 schedule_with_max_values = []
+                # iterations = []
                 for timestamp, _ in enumerate(list(energy_schedule.dict_schedules.values())[0]):
                     max_gas_amount = self._value_weights['max_gas_amount']
                     fixed_values = {'heat_open': np.max([open_schedule.dict_schedules['heat'][timestamp], 0]),
                                     'power_open': np.max([open_schedule.dict_schedules['power'][timestamp], 0]),
                                     'power_schedule_timestamp': energy_schedule.dict_schedules['power'][timestamp]}
-                    old_gas_amount = 0
+                    list_of_outputs = []
+                    max_iterations = 1000
+                    possible_gas_amounts = np.array(range(max_gas_amount + 1))
                     if candidate.schedules[self._part_id] and 'gas_amount' in candidate.schedules[self._part_id].dict_schedules.keys() and candidate.schedules[self._part_id].dict_schedules['gas_amount'][timestamp]:
-                        old_gas_amount = candidate.schedules[self._part_id].dict_schedules['gas_amount'][timestamp]
-                    list_of_outputs = [self.calculate_gas_amount(old_gas_amount, fixed_values)]
-                    if max_gas_amount < 4:
-                        for i in range(0, max_gas_amount):
-                            list_of_outputs.append(self.calculate_gas_amount(i, fixed_values))
-                    else:
-                        list_of_outputs.append(self.calculate_gas_amount(int(max_gas_amount * 0), fixed_values))
-                        list_of_outputs.append(self.calculate_gas_amount(int(max_gas_amount / 4), fixed_values))
-                        list_of_outputs.append(self.calculate_gas_amount(int(max_gas_amount / 2), fixed_values))
-                        list_of_outputs.append(self.calculate_gas_amount(int(max_gas_amount / 4 * 3), fixed_values))
-                        list_of_outputs.append(self.calculate_gas_amount(int(max_gas_amount * 1), fixed_values))
-                        while len(list_of_outputs) < min(max_list_of_outputs, max_gas_amount):
-                            list_of_outputs.sort(key=lambda x: [x['value'], -x['gas_amount']], reverse=True)
-                            less_value_objects = list(filter(lambda x: (x['gas_amount'] < list_of_outputs[0]['gas_amount']), list_of_outputs))
-                            if less_value_objects:
-                                less_value_object = max(less_value_objects, key=lambda item: item['value'])
-                                list_of_outputs.append(self.calculate_gas_amount(int((list_of_outputs[0]['gas_amount'] + less_value_object['gas_amount']) / 2), fixed_values))
-                            more_value_objects = list(filter(lambda x: (x['gas_amount'] > list_of_outputs[0]['gas_amount']), list_of_outputs))
-                            if more_value_objects:
-                                more_value_object = max(more_value_objects, key=lambda item: item['value'])
-                                list_of_outputs.append(self.calculate_gas_amount(int((list_of_outputs[0]['gas_amount'] + more_value_object['gas_amount']) / 2), fixed_values))
+                        list_of_outputs.append(self.calculate_gas_amount(int(candidate.schedules[self._part_id].dict_schedules['gas_amount'][timestamp]), fixed_values))
+                    iteration = 0
+                    while len(possible_gas_amounts) > 0 and iteration < max_iterations:
+                        iteration += 1
+                        if len(list_of_outputs) == 0:
+                            gas_amount = random.choice(possible_gas_amounts)
+                            possible_gas_amounts = np.setdiff1d(possible_gas_amounts, np.array(gas_amount))
+                            list_of_outputs.append(self.calculate_gas_amount(gas_amount, fixed_values))
+                        else:
+                            if len(list_of_outputs) == 1:
+                                gas_amount = list_of_outputs[0]['gas_amount']
+                                if gas_amount == 0 and max_gas_amount > 0:
+                                    possible_gas_amounts = np.setdiff1d(possible_gas_amounts, np.array(gas_amount + 1))
+                                    list_of_outputs.append(self.calculate_gas_amount(gas_amount + 1, fixed_values))
+                                    if gas_amount == 0 and max_gas_amount > 1:
+                                        possible_gas_amounts = np.setdiff1d(possible_gas_amounts, np.array(gas_amount + 2))
+                                        list_of_outputs.append(self.calculate_gas_amount(gas_amount + 2, fixed_values))
+                                elif gas_amount == max_gas_amount and max_gas_amount > 0:
+                                    possible_gas_amounts = np.setdiff1d(possible_gas_amounts, np.array(gas_amount - 1))
+                                    list_of_outputs.append(self.calculate_gas_amount(gas_amount - 1, fixed_values))
+                                    if gas_amount == max_gas_amount and max_gas_amount > 1:
+                                        possible_gas_amounts = np.setdiff1d(possible_gas_amounts, np.array(gas_amount - 2))
+                                        list_of_outputs.append(self.calculate_gas_amount(gas_amount - 2, fixed_values))
+                                else:
+                                    possible_gas_amounts = np.setdiff1d(possible_gas_amounts, np.array(gas_amount - 1))
+                                    list_of_outputs.append(self.calculate_gas_amount(gas_amount - 1, fixed_values))
+                                    possible_gas_amounts = np.setdiff1d(possible_gas_amounts, np.array(gas_amount + 1))
+                                    list_of_outputs.append(self.calculate_gas_amount(gas_amount + 1, fixed_values))
+                            else:
+                                list_of_outputs.sort(key=lambda x: [x['value'], -x['gas_amount']], reverse=True)
+                                output_gas_0 = list_of_outputs[0]['gas_amount']
+                                output_gas_1 = list_of_outputs[1]['gas_amount']
+                                output_gas_2 = list_of_outputs[2]['gas_amount']
+                                if output_gas_0 > output_gas_1 > output_gas_2:
+                                    remove = np.array(list(filter(lambda x: (x < output_gas_1), possible_gas_amounts)))
+                                    possible_gas_amounts = np.setdiff1d(possible_gas_amounts, remove)
+                                elif output_gas_2 > output_gas_1 > output_gas_0:
+                                    remove = np.array(list(filter(lambda x: (x > output_gas_1), possible_gas_amounts)))
+                                    possible_gas_amounts = np.setdiff1d(possible_gas_amounts, remove)
+                                elif output_gas_1 > output_gas_0 > output_gas_2 or output_gas_2 > output_gas_0 > output_gas_1:
+                                    remove = np.array(list(filter(lambda x: (x > max(output_gas_1, output_gas_2)), possible_gas_amounts)))
+                                    possible_gas_amounts = np.setdiff1d(possible_gas_amounts, remove)
+                                    remove = np.array(list(filter(lambda x: (x < min(output_gas_1, output_gas_2)), possible_gas_amounts)))
+                                    possible_gas_amounts = np.setdiff1d(possible_gas_amounts, remove)
+                                if len(possible_gas_amounts) > 0:
+                                    gas_amount = random.choice(possible_gas_amounts)
+                                    possible_gas_amounts = np.setdiff1d(possible_gas_amounts, np.array(gas_amount))
+                                    list_of_outputs.append(self.calculate_gas_amount(gas_amount, fixed_values))
+                                    list_of_outputs.sort(key=lambda x: [x['value'], -x['gas_amount']], reverse=True)
+                                    if list_of_outputs[0]['gas_amount'] is not gas_amount and \
+                                            list_of_outputs[1]['gas_amount'] is not gas_amount and \
+                                            list_of_outputs[2]['gas_amount'] is not gas_amount:
+                                        if gas_amount < list_of_outputs[0]['gas_amount']:
+                                            remove = np.array(list(filter(lambda x: (x < gas_amount), possible_gas_amounts)))
+                                            possible_gas_amounts = np.setdiff1d(possible_gas_amounts, remove)
+                                        else:
+                                            remove = np.array(list(filter(lambda x: (x > gas_amount), possible_gas_amounts)))
+                                            possible_gas_amounts = np.setdiff1d(possible_gas_amounts, remove)
                     list_of_outputs.sort(key=lambda x: [x['value'], -x['gas_amount']], reverse=True)
                     schedule_with_max_values.append(list_of_outputs[0])
+                    # iterations.append(iteration)
+                # print(f" |{np.round(np.average(iterations), 1)}", end="")
                 max_value_schedules = {}
                 for key in schedule_with_max_values[0].keys():
                     max_value_schedule = []
