@@ -302,7 +302,7 @@ OUTPUT: [10  9]*1(3 4)*0.8
 - Heat vernünftig einbinden
 - neben dem alten schedule eine Liste von schedule_with_max_value geben. Der beste schedule wird an die Koalition weiter
   gegeben, damit die anderen darauf reagieren können
-- nach self.test_gas_amount() nicht mehr einzelne schedules betrachten, sondern den schedule_with_max_value
+- nach self.calculate_gas_amount() nicht mehr einzelne schedules betrachten, sondern den schedule_with_max_value
 - dann können andere agenten auf die verschiedenen schedule_with_max_value reagieren
 
 2023-02-14

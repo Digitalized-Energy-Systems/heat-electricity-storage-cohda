@@ -208,8 +208,7 @@ class COHDA:
     def get_perf(energy_schedules, target_schedule) -> float:
         result = 0
         for dict_key in target_schedule.dict_schedules.keys():
-            test = np.abs(np.subtract(target_schedule.dict_schedules[dict_key], energy_schedules.dict_schedules[dict_key]))
-            result += np.sum(test)
+            result += np.sum(np.abs(np.subtract(target_schedule.dict_schedules[dict_key], energy_schedules.dict_schedules[dict_key])))
         return result
 
     def handle_cohda_msgs(self, messages: List[CohdaMessage]) -> Optional[CohdaMessage]:
@@ -236,8 +235,8 @@ class COHDA:
             new_best_counter = False
             old_perf = float("inf")
             if self._part_id not in best_perf.keys() or \
-                    best_perf[self._part_id].perf > candidate.perf or \
-                    len(best_perf[self._part_id].schedules) < len(candidate.schedules):
+                    len(best_perf[self._part_id].schedules) < len(candidate.schedules) or \
+                    best_perf[self._part_id].perf > candidate.perf:
                 self._best_solution_candidate = candidate_copy
                 if self._part_id in best_perf.keys() and best_perf[self._part_id].perf > candidate.perf:
                     old_perf = best_perf[self._part_id].perf
@@ -364,26 +363,26 @@ class COHDA:
                     old_gas_amount = 0
                     if candidate.schedules[self._part_id] and 'gas_amount' in candidate.schedules[self._part_id].dict_schedules.keys() and candidate.schedules[self._part_id].dict_schedules['gas_amount'][timestamp]:
                         old_gas_amount = candidate.schedules[self._part_id].dict_schedules['gas_amount'][timestamp]
-                    list_of_outputs = [self.test_gas_amount(old_gas_amount, fixed_values)]
+                    list_of_outputs = [self.calculate_gas_amount(old_gas_amount, fixed_values)]
                     if max_gas_amount < 4:
                         for i in range(0, max_gas_amount):
-                            list_of_outputs.append(self.test_gas_amount(i, fixed_values))
+                            list_of_outputs.append(self.calculate_gas_amount(i, fixed_values))
                     else:
-                        list_of_outputs.append(self.test_gas_amount(int(max_gas_amount * 0), fixed_values))
-                        list_of_outputs.append(self.test_gas_amount(int(max_gas_amount / 4), fixed_values))
-                        list_of_outputs.append(self.test_gas_amount(int(max_gas_amount / 2), fixed_values))
-                        list_of_outputs.append(self.test_gas_amount(int(max_gas_amount / 4 * 3), fixed_values))
-                        list_of_outputs.append(self.test_gas_amount(int(max_gas_amount * 1), fixed_values))
+                        list_of_outputs.append(self.calculate_gas_amount(int(max_gas_amount * 0), fixed_values))
+                        list_of_outputs.append(self.calculate_gas_amount(int(max_gas_amount / 4), fixed_values))
+                        list_of_outputs.append(self.calculate_gas_amount(int(max_gas_amount / 2), fixed_values))
+                        list_of_outputs.append(self.calculate_gas_amount(int(max_gas_amount / 4 * 3), fixed_values))
+                        list_of_outputs.append(self.calculate_gas_amount(int(max_gas_amount * 1), fixed_values))
                         while len(list_of_outputs) < min(max_list_of_outputs, max_gas_amount):
                             list_of_outputs.sort(key=lambda x: [x['value'], -x['gas_amount']], reverse=True)
                             less_value_objects = list(filter(lambda x: (x['gas_amount'] < list_of_outputs[0]['gas_amount']), list_of_outputs))
                             if less_value_objects:
                                 less_value_object = max(less_value_objects, key=lambda item: item['value'])
-                                list_of_outputs.append(self.test_gas_amount(int((list_of_outputs[0]['gas_amount'] + less_value_object['gas_amount']) / 2), fixed_values))
+                                list_of_outputs.append(self.calculate_gas_amount(int((list_of_outputs[0]['gas_amount'] + less_value_object['gas_amount']) / 2), fixed_values))
                             more_value_objects = list(filter(lambda x: (x['gas_amount'] > list_of_outputs[0]['gas_amount']), list_of_outputs))
                             if more_value_objects:
                                 more_value_object = max(more_value_objects, key=lambda item: item['value'])
-                                list_of_outputs.append(self.test_gas_amount(int((list_of_outputs[0]['gas_amount'] + more_value_object['gas_amount']) / 2), fixed_values))
+                                list_of_outputs.append(self.calculate_gas_amount(int((list_of_outputs[0]['gas_amount'] + more_value_object['gas_amount']) / 2), fixed_values))
                     list_of_outputs.sort(key=lambda x: [x['value'], -x['gas_amount']], reverse=True)
                     schedule_with_max_values.append(list_of_outputs[0])
                 max_value_schedules = {}
@@ -425,7 +424,7 @@ class COHDA:
 
         return sysconfig, current_best_candidate
 
-    def test_gas_amount(self, gas_amount, fixed_values):
+    def calculate_gas_amount(self, gas_amount, fixed_values):
         gas_to_power = gas_amount * self._value_weights['gas_to_power_factor']
         gas_to_heat = gas_amount * self._value_weights['gas_to_heat_factor']
         max_power_to_power_to_heat = np.min([self._value_weights['power_to_heat_amount'],
