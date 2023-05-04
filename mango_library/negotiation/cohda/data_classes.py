@@ -133,9 +133,11 @@ class SolutionCandidate:
     def __str__(self):
         string = "SolutionCandidate perf: " + str(self.perf)
         data = []
+        data2 = []
         columns = []
         for schedule_keys in self.schedules.keys():
             new_data, new_columns = self.schedules[schedule_keys].panda_data()
+            data2.append(np.sum(new_data, axis=0))
             for c, column in enumerate(new_columns):
                 if column in columns:
                     c_index = columns.index(column)
@@ -151,6 +153,7 @@ class SolutionCandidate:
                             data[d].append([])
                         data[d][c_index] = round(dataVal[c], 2)
         string += f"\n{pd.DataFrame(data=data, columns=columns)}"
+        string += f"\n{pd.DataFrame(data=data2, columns=columns)}"
         return string
 
     def to_energy_schedules(self):
