@@ -34,7 +34,7 @@ class EnergySchedules:
         for i, _ in enumerate(self.dict_schedules[list(self.dict_schedules.keys())[0]]):
             new_line = []
             for column in columns:
-                new_line.append(self.dict_schedules[column][i])
+                new_line.append(round(self.dict_schedules[column][i], 2))
             data.append(new_line)
         return data, columns
 
@@ -135,7 +135,8 @@ class SolutionCandidate:
         data = []
         data2 = []
         columns = []
-        for schedule_keys in self.schedules.keys():
+        keys = np.sort(np.array(list(self.schedules.keys())).astype(int)).astype(str)
+        for schedule_keys in keys:
             new_data, new_columns = self.schedules[schedule_keys].panda_data()
             data2.append(np.sum(new_data, axis=0))
             for c, column in enumerate(new_columns):
@@ -143,6 +144,7 @@ class SolutionCandidate:
                     c_index = columns.index(column)
                     for d, dataVal in enumerate(new_data):
                         data[d][c_index] = f"{data[d][c_index]} | {round(dataVal[c], 2)}"
+                        # data[d][c_index] = f"{data[d][c_index]} | {int(dataVal[c])}"
                 else:
                     columns.append(column)
                     c_index = columns.index(column)
@@ -152,6 +154,12 @@ class SolutionCandidate:
                         if len(data[d]) <= c_index:
                             data[d].append([])
                         data[d][c_index] = round(dataVal[c], 2)
+                        # data[d][c_index] = int(dataVal[c])
+        # pd.option_context('display.max_rows', None, 'display.max_columns', None, 'max_colwidth', None, 'display.expand_frame_repr', False)
+        pd.set_option('display.max_rows', None)
+        pd.set_option('display.max_columns', None)
+        pd.set_option('display.expand_frame_repr', False)
+        pd.set_option('max_colwidth', None)
         string += f"\n{pd.DataFrame(data=data, columns=columns)}"
         string += f"\n{pd.DataFrame(data=data2, columns=columns)}"
         return string

@@ -3,6 +3,7 @@ integrate COHDA in the negotiation system and the core COHDA-decider together wi
 """
 import asyncio
 import logging
+import math
 import random
 import time
 from copy import copy
@@ -88,6 +89,8 @@ global_start_time = time.time()
 best_perf = {}
 best_counter = 0
 best_counter_end = False
+number = 0
+print_data = {}
 """ globals """
 
 
@@ -237,7 +240,7 @@ class COHDA:
             old_perf = float("inf")
             if self._part_id not in best_perf.keys() or \
                     len(best_perf[self._part_id].schedules) < len(candidate.schedules) or \
-                    best_perf[self._part_id].perf > candidate.perf:
+                    best_perf[self._part_id].perf > candidate.perf + 0.01:  # Real change is needed
                 self._best_solution_candidate = candidate_copy
                 if self._part_id in best_perf.keys() and best_perf[self._part_id].perf > candidate.perf:
                     old_perf = best_perf[self._part_id].perf
@@ -253,11 +256,12 @@ class COHDA:
                     max_perf = best_perf[best_perf_keys].perf
             diff = max_perf - min_perf
             # TODO Optimal multiplication * 20
-            maximum_agent_attempts = 20
+            maximum_agent_attempts = self._value_weights['maximum_agent_attempts']
             if best_counter >= len(best_perf) * maximum_agent_attempts:
                 best_counter_end = True
             if best_counter_end:
                 print(Colors.BOLD, end="")
+            global number
             if not (new_best_counter or best_counter_end):
                 if best_counter == 1:
                     print(f"\n\t1/{maximum_agent_attempts}:", end=" ")
@@ -266,9 +270,9 @@ class COHDA:
                     print(f"\n\t{int(best_counter / len(candidate.schedules)) + 1}/{maximum_agent_attempts}:", end=" ")
                 # logging.debug(f"{self._part_id}: new:{format(candidate_copy.perf, '.3f')} - {format(min_perf, '.0f')}-{format(max_perf, '.0f')} - {format((time.time() - global_start_time), '.3f')}s - diff:{np.round(diff, 3)} - {best_counter}")
             elif new_best_counter:
-                print(f"\n{self._part_id}: {format(old_perf, '.1f')}->{format(candidate_copy.perf, '.1f')} - {format(min_perf, '.0f')}-{format(max_perf, '.0f')} - {format((time.time() - global_start_time), '.3f')}s - diff:{np.round(diff, 3)}", end="")
+                print(f"\n{number} - {self._part_id}: {format(old_perf, '.1f')}->{format(candidate_copy.perf, '.1f')} - {format(min_perf, '.0f')}-{format(max_perf, '.0f')} - {format((time.time() - global_start_time), '.3f')}s - diff:{np.round(diff, 3)}", end="")
             elif best_counter_end:
-                print(f"\n{self._part_id}: {format(min_perf, '.0f')}-{format(max_perf, '.0f')} - {format((time.time() - global_start_time), '.3f')}s - diff:{np.round(diff, 3)}", end="")
+                print(f"\n{number} - {self._part_id}: {format(min_perf, '.0f')}-{format(max_perf, '.0f')} - {format((time.time() - global_start_time), '.3f')}s - diff:{np.round(diff, 3)}", end="")
             print(Colors.RESET_ALL, end="")
             if best_counter_end:
                 return None
@@ -363,9 +367,11 @@ class COHDA:
                                     'power_open': np.max([open_schedule.dict_schedules['power'][timestamp], 0]),
                                     'power_schedule_timestamp': energy_schedule.dict_schedules['power'][timestamp]}
                     list_of_outputs = []
-                    # max_iterations = float("inf")
-                    max_iterations = 100
-                    possible_gas_amounts = np.array(range(max_gas_amount + 1))
+                    max_iterations = float("inf")
+                    if max_gas_amount > 0:
+                        max_iterations = self._value_weights['max_iterations'] * math.pow(math.ceil(math.log(max_gas_amount)), 2)
+                        max_iterations = self._value_weights['max_iterations']
+                    possible_gas_amounts = np.array(range(int(max_gas_amount) + 1))
                     if candidate.schedules[self._part_id] and 'gas_amount' in candidate.schedules[self._part_id].dict_schedules.keys() and candidate.schedules[self._part_id].dict_schedules['gas_amount'][timestamp]:
                         list_of_outputs.append(self.calculate_gas_amount(int(candidate.schedules[self._part_id].dict_schedules['gas_amount'][timestamp]), fixed_values))
                     iteration = 0
@@ -427,7 +433,8 @@ class COHDA:
                     list_of_outputs.sort(key=lambda x: [x['value'], -x['gas_amount']], reverse=True)
                     schedule_with_max_values.append(list_of_outputs[0])
                     iterations.append(iteration)
-                print(f" |{np.round(np.average(iterations), 1)}", end="")
+                # print(f" |{np.round(np.average(iterations), 1)}", end="")
+                print(".", end="")
                 max_value_schedules = {}
                 for key in schedule_with_max_values[0].keys():
                     max_value_schedule = []
@@ -465,23 +472,38 @@ class COHDA:
 
         current_best_candidate.perf = self._perf_func(current_best_candidate.to_energy_schedules(), target_schedule)
 
+        global number
+        number += 1
+        if f"all" not in print_data.keys():
+            print_data["all"] = ""
+        if f"{self._part_id}_heat" not in print_data.keys():
+            print_data[f"{self._part_id}_heat"] = ""
+            print_data[f"{self._part_id}_power"] = ""
+        np.set_printoptions(linewidth=np.inf)
+        print_data[f"all"] += f"{number}\t{self._part_id}\t{current_best_candidate.perf:.2f}\n"
+        print_data[f"{self._part_id}_heat"] += f"{number}\t{self._part_id}\t{current_best_candidate.perf:.2f}\t{np.array(current_best_candidate.schedules[self._part_id].dict_schedules['heat']).astype(int)}\n"
+        print_data[f"{self._part_id}_power"] += f"{number}\t{self._part_id}\t{current_best_candidate.perf:.2f}\t{np.array(current_best_candidate.schedules[self._part_id].dict_schedules['power']).astype(int)}\n"
+
         return sysconfig, current_best_candidate
 
     def calculate_gas_amount(self, gas_amount, fixed_values):
+        penalty_exponent = self._value_weights['penalty_exponent']
         gas_to_power = gas_amount * self._value_weights['gas_to_power_factor']
         gas_to_heat = gas_amount * self._value_weights['gas_to_heat_factor']
-        max_power_to_power_to_heat = np.min([self._value_weights['power_to_heat_amount'],
-                                             fixed_values['power_schedule_timestamp'] + gas_to_power - fixed_values['power_open']])
-        max_heat_in_power_to_heat = (fixed_values['heat_open'] - gas_to_heat) / self._value_weights['power_to_heat_factor']
-        power_to_heat = np.max([np.min([max_power_to_power_to_heat, max_heat_in_power_to_heat]), 0])
+        power_to_heat = 0
+        if self._value_weights['power_to_heat_amount'] > 0:
+            max_power_to_power_to_heat = np.min([self._value_weights['power_to_heat_amount'],
+                                                 fixed_values['power_schedule_timestamp'] + gas_to_power - fixed_values['power_open']])
+            max_heat_in_power_to_heat = (fixed_values['heat_open'] - gas_to_heat) / self._value_weights['power_to_heat_factor']
+            power_to_heat = np.max([np.min([max_power_to_power_to_heat, max_heat_in_power_to_heat]), 0])
         power_to_conversion = np.min([np.max([fixed_values['power_schedule_timestamp'] + gas_to_power - power_to_heat - fixed_values['power_open'], 0]), self._value_weights['convert_amount']])
         end_power = fixed_values['power_schedule_timestamp'] + gas_to_power - power_to_heat - power_to_conversion
         end_heat = gas_to_heat + power_to_heat * self._value_weights['power_to_heat_factor']
         value = end_power * self._value_weights['power_kwh_price'] \
                 + end_heat * self._value_weights['heat_kwh_price'] \
                 + power_to_conversion * self._value_weights['converted_price'] \
-                - np.absolute(end_power - fixed_values['power_open']) * self._value_weights['power_penalty'] \
-                - np.absolute(end_heat - fixed_values['heat_open']) * self._value_weights['heat_penalty'] \
+                - np.power(np.absolute(end_power - fixed_values['power_open']), penalty_exponent) * self._value_weights['power_penalty'] \
+                - np.power(np.absolute(end_heat - fixed_values['heat_open']), penalty_exponent) * self._value_weights['heat_penalty'] \
                 - gas_amount * self._value_weights['gas_price']
 
         return {'gas_amount': gas_amount, 'value': value, 'end_power': end_power, 'end_heat': end_heat, 'power_to_heat': power_to_heat, 'power_to_conversion': power_to_conversion}
