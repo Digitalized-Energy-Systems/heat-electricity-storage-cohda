@@ -198,14 +198,10 @@ class COHDA:
         """
         EnergySchedules(target_parameters) - EnergySchedules(cluster_schedule) = Dict
         """
-        # TODO Add the use of np.array(weights)
         target_schedule, weights = target_parameters
         target_schedule = EnergySchedules(dict_schedules=target_schedule)
         for agent_id in cluster_schedule.schedules:
             target_schedule = target_schedule - cluster_schedule.schedules[agent_id]
-        # TODO Can the cluster_schedule be empty? And is that important for the calculation?
-        # if cluster_schedule.size == 0:
-        #     return float('-inf')
         return target_schedule.sum()
 
     @staticmethod
@@ -255,7 +251,6 @@ class COHDA:
                 if max_perf < best_perf[best_perf_keys].perf:
                     max_perf = best_perf[best_perf_keys].perf
             diff = max_perf - min_perf
-            # TODO Optimal multiplication * 20
             maximum_agent_attempts = self._value_weights['maximum_agent_attempts']
             if best_counter >= len(best_perf) * maximum_agent_attempts:
                 best_counter_end = True

@@ -60,7 +60,6 @@ class EnergySchedules:
             if self.perf is not None and o.perf is not None:
                 perf = self.perf - o.perf
             return EnergySchedules(dict_schedules=dict_schedules, perf=perf)
-        # TODO throw Exception(__add__)
         return self
 
     def __sub__(self, o: object):
@@ -73,7 +72,6 @@ class EnergySchedules:
             if self.perf is not None and o.perf is not None:
                 perf = self.perf - o.perf
             return EnergySchedules(dict_schedules=dict_schedules, perf=perf)
-        # TODO throw Exception(__sub__)
         return self
 
     def sum(self):
@@ -220,9 +218,7 @@ class SolutionCandidate:
 
         :param new_perf: perf
         """
-        #TODO clear SolutionCandidate.perf & EnergySchedules.perf
         self._perf = new_perf
-        # print(f"SolutionCandidate.perf (setter): {self._perf}")
 
     @property
     def cluster_schedule(self) -> EnergySchedules:
@@ -266,7 +262,6 @@ class ScheduleSelection:
     def __init__(self, energy_schedules: EnergySchedules, counter: int) -> None:
         self._energy_schedules = energy_schedules
         self._counter = counter
-
 
     def __eq__(self, o: object) -> bool:
         return isinstance(o, ScheduleSelection) \
@@ -389,4 +384,4 @@ class WorkingMemory:
 
     def __eq__(self, o: object) -> bool:
         return isinstance(o, WorkingMemory) and self.solution_candidate == o.solution_candidate \
-               and self.system_config == o.system_config and self.target_params == o.target_params
+            and self.system_config == o.system_config and self.target_params == o.target_params
