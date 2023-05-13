@@ -1,3 +1,4 @@
+import os.path
 import uuid
 
 import pandas as pd
@@ -8,7 +9,7 @@ from mango_library.coalition.core import CoalitionModel
 from mango_library.negotiation.cohda.cohda import *
 from mango_library.negotiation.termination import NegotiationTerminationRole
 
-addr = ('127.0.0.2', 5557)
+addr = ('127.0.0.2', random.randint(5557, 9999))
 
 " Pandas "
 pd.set_option('display.width', None)
@@ -22,13 +23,16 @@ async def test_case(power_target, heat_target, value_weights, schedules_provider
 
     global_start_time = time.time()
     t = time.localtime(time.time())
-    filename = f"{t.tm_year:04d}-{t.tm_mon:02d}-{t.tm_mday:02d}_{t.tm_hour:02d}-{t.tm_min:02d}-{t.tm_sec:02d}"
+    if not os.path.exists("log"):
+        os.makedirs("log")
+    filename = f"log/{t.tm_year:04d}-{t.tm_mon:02d}-{t.tm_mday:02d}_{t.tm_hour:02d}-{t.tm_min:02d}-{t.tm_sec:02d}"
     for value_weight in value_weights:
         value_weight["global_start_time"] = global_start_time
         value_weight["filename"] = filename
-    f = open(filename, "a")
+    f = open(f'{filename}_start.txt', "a")
     f.write(f"{power_target}\n")
     f.write(f"{heat_target}\n")
+    np.set_printoptions(linewidth=np.inf)
     for i in range(len(value_weights)):
         f.write(f"{i}: {value_weights[i]} schedules: {str(schedules_provider[i])}\n")
     f.close()
@@ -67,17 +71,21 @@ async def test_case(power_target, heat_target, value_weights, schedules_provider
 
     print()
     print()
+    f = open(f'{filename}_result.txt', "a")
     " calc best_energy_schedules "
     best_solution_candidate = None
     best_solution_candidate_perf = float("-inf")
     print(f"{Colors.BOLD}Search for best_solution_candidate{Colors.RESET_ALL}")
+    f.write(f"Search for best_solution_candidate\n")
     for agent in agents:
         solution_candidate = agent.roles[0]._cohda[coal_id]._best_solution_candidate
         print(f"{agent.aid} - perf: {np.round(solution_candidate.perf, 2)}")
+        f.write(f"{agent.aid} - perf: {np.round(solution_candidate.perf, 2)}\n")
         if best_solution_candidate is None or solution_candidate.perf < best_solution_candidate_perf:
             best_solution_candidate = solution_candidate
             best_solution_candidate_perf = solution_candidate.perf
     print(f"BEST: {best_solution_candidate}")
+    f.write(f"BEST: {best_solution_candidate}\n")
 
     soll = EnergySchedules(dict_schedules={'power': power_target, 'heat': heat_target})
     ist = best_solution_candidate.to_energy_schedules()
@@ -102,27 +110,36 @@ async def test_case(power_target, heat_target, value_weights, schedules_provider
         new_line.append(ist.dict_schedules["power_to_heat"][i])
         new_line.append(ist.dict_schedules["power_to_conversion"][i])
         data.append(new_line)
-    print(pd.DataFrame(data=data, columns=pd.MultiIndex.from_frame(pd.DataFrame(data=columns), names=["", ""])))
+
+    datatable1 = pd.DataFrame(data=data, columns=pd.MultiIndex.from_frame(pd.DataFrame(data=columns), names=["", ""]))
+    print(datatable1)
+    f.write(f"{datatable1}\n")
     coalition_sum = np.sum(np.abs(data), axis=0)
-    print(pd.DataFrame(data=[coalition_sum], columns=pd.MultiIndex.from_frame(pd.DataFrame(data=columns), names=["", ""])))
-    print(f"{coalition_sum[1]:.2f}*{value_weights[0]['power_kwh_price']}", end=" + ")
+    datatable2 = pd.DataFrame(data=[coalition_sum], columns=pd.MultiIndex.from_frame(pd.DataFrame(data=columns), names=["", ""]))
+    print(datatable2)
+    f.write(f"{datatable2}\n")
+    calculation = f"{coalition_sum[1]:.2f}*{value_weights[0]['power_kwh_price']} + "
+    calculation += f"{coalition_sum[4]:.2f}*{value_weights[0]['heat_kwh_price']} + "
+    calculation += f"{coalition_sum[6]:.2f}*{value_weights[0]['gas_price']} + "
+    calculation += f"{coalition_sum[8]:.2f}*{value_weights[0]['converted_price']}"
     result = coalition_sum[1] * value_weights[0]['power_kwh_price']
-    print(f"{coalition_sum[4]:.2f}*{value_weights[0]['heat_kwh_price']}", end=" + ")
     result += coalition_sum[4] * value_weights[0]['heat_kwh_price']
-    print(f"{coalition_sum[6]:.2f}*{value_weights[0]['gas_price']}", end=" - ")
     result += coalition_sum[6] * value_weights[0]['gas_price']
-    print(f"{coalition_sum[8]:.2f}*{value_weights[0]['converted_price']}", end=" = ")
     result += coalition_sum[8] * value_weights[0]['converted_price']
-    print(f"{result:.2f}")
+    print(f"{calculation} = {result:.2f}")
+    f.write(f"{calculation} = {result:.2f}\n")
     print(f"DIFF: {int(coalition_sum[2])}+{int(coalition_sum[5])} = {int(coalition_sum[2] + coalition_sum[5])}")
+    f.write(f"DIFF: {int(coalition_sum[2])}+{int(coalition_sum[5])} = {int(coalition_sum[2] + coalition_sum[5])}\n")
+    f.close()
 
     global print_data
     i = 0
-    for part in print_data:
-        f = open(f'{filename}_{part}.txt', "a")
-        f.write(print_data[part])
-        f.close()
-        i += 1
+    # for part in print_data:
+    part = 'all'
+    f = open(f'{filename}_{part}.txt', "a")
+    f.write(print_data[part])
+    f.close()
+    i += 1
 
     return {'ziel': soll, 'ist': ist, 'time': time.time() - global_start_time}
 
@@ -176,65 +193,63 @@ def get_schedule(day, count, power, cut):
     return schedule
 
 
-# avg = []
-# maxv = []
-# for i in range(10000):
-#     _, avg_, maxv_ = get_wind_schedule(36)
-#     avg.append(avg_)
-#     maxv.append(maxv_)
-# print(f"{int(1000*sum(avg) / len(avg))/1000}\t{avg}")
-# print(f"{int(sum(maxa) / len(maxa))}\t{min(maxa)}\t{max(maxa)}\t{maxa}")
-# print(f"{sum(avg) / len(avg)}")
-# print(f"{int(sum(maxv) / len(maxv))}\t{min(maxv)}\t{max(maxv)}")
-# print(f"{sum(day)}\t{min(day)}\t{max(day)}\t{int(sum(day)/len(day))}\t{day}")
-# res = []
-# for i in day:
-#     res.append(i * i * i)
-# print(min(res), max(res), int(sum(res)/len(res)), res)
-
-power_penalty = .069261538461538464661604308503228821825
-power_penalty = 10000000
-# heat_penalty = power_penalty
-heat_penalty = 10
+max_iterations = 2
+max_iteration_power = 0
+penalty_exponent = 2
+power_penalty = 1
+heat_penalty = 1
 power_kwh_price = .15
 heat_kwh_price = .1
 converted_price = .05
 maximum_agent_attempts = 5
 # 'convert_amount', 'gas_price', 'max_gas_amount', 'gas_to_heat_factor', 'gas_to_power_factor', 'power_to_heat_factor', 'power_to_heat_amount'
 val = [
-    [0, 999 * 0.11 / 430, 430, 951 / 430, 999 / 430, .9, 1000, [np.zeros(96)]],
-    [0, 999 * 0.11 / 430, 430, 951 / 430, 999 / 430, .9, 1000, [np.zeros(96)]],
-    [0, 999 * 0.11 / 430, 430, 951 / 430, 999 / 430, .9, 1000, [np.zeros(96)]],
-    [0, 999 * 0.11 / 430, 430, 951 / 430, 999 / 430, .9, 1000, [np.zeros(96)]],
-    [0, 999 * 0.11 / 430, 430, 951 / 430, 999 / 430, .9, 1000, [np.zeros(96)]],
-    [0, 999 * 0.11 / 430, 430, 951 / 430, 999 / 430, .9, 1000, [np.zeros(96)]],
-    [0, 999 * 0.11 / 430, 430, 951 / 430, 999 / 430, .9, 1000, [np.zeros(96)]],
-    [0, 999 * 0.11 / 430, 430, 951 / 430, 999 / 430, .9, 1000, [np.zeros(96)]],
-    [0, 999 * 0.11 / 430, 430, 951 / 430, 999 / 430, .9, 1000, [np.zeros(96)]],
-    # [0, 0, 0, 0, 0, .9, 10000, [get_wind_schedule(36, 5, 3.7, .1, 1)[0]]],
-    # [0, 0, 0, 0, 0, .9, 10000, [get_wind_schedule(36, 5, 3.7, .1, 2)[0]]],
-    # [0, 0, 0, 0, 0, .9, 10000, [get_wind_schedule(36, 5, 3.7, .1, 3)[0]]],
-    # [0, 0, 0, 0, 0, .9, 10000, [get_wind_schedule(36, 5, 3.7, .1, 2)[0]]],
-    # [0, 0, 0, 0, 0, .9, 10000, [get_wind_schedule(36, 5, 3.7, .1, 1)[0]]],
+    [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0],
+    [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0],
+    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
+    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
+    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
+    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
+    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
+    [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0],
+    [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0],
+    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
+    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
+    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
+    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
+    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
 ]
-power_target = [500, 520, 520, 520, 520, 520, 520, 520, 620, 720, 820, 3200, 4200, 5200, 8500, 12520, 8520, 4420, 2520, 1520, 520, 520, 520, 520, 80, 130, 220, 280, 470, 400, 440, 550, 570, 820, 900, 1010, 1230, 1520, 2400, 3000, 3400, 3800, 4200, 4600, 5000, 5400, 4800, 6000, 6100, 6200, 6300, 6400, 6400, 6400, 6500, 6600, 6600, 6500, 6500, 6500, 6400, 6100, 6100, 6200, 6100, 5800, 5600, 5100, 4200, 4600, 4700, 3300, 3300, 1860, 1270, 820, 540, 376, 220, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520, 520],
+power_target = [500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 550, 600, 650, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1700, 1700, 1700, 1650, 1600, 1550, 1500, 1450, 1400, 1350, 1300, 1300, 1300, 1500, 1700, 1900, 2100, 2300, 2500, 2500, 2500, 2450, 2400, 2350, 2300, 2250, 2200, 2150, 2100, 2050, 2000, 1950, 1900, 1850, 1850, 1850, 1850, 1900, 2000, 2100, 2200, 2200, 2200, 2100, 2000, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1800, 1700, 1500, 1300, 1100, 900, 700, 500],
 heat_target = [3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 2950, 2900, 2850, 2800, 2750, 2700, 2650, 2600, 2550, 2500, 2450, 2400, 2350, 2300, 2250, 2200, 2150, 2100, 2050, 2000, 1950, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1950, 2000, 2050, 2100, 2150, 2200, 2250, 2300, 2350, 2400, 2450, 2500, 2550, 2600, 2650, 2700, 2750, 2800, 2850, 2900, 2950, 3000],
-power_target = power_target[0]
+power_target = power_target[0] + np.ones(96) * 500
 heat_target = heat_target[0]
 # power_target = np.ones(96)
 # heat_target = np.ones(96)
 power_target = power_target / np.sum(power_target)
-print(power_target)
-power_target = (power_target * 9.6E4 * 4).astype(int)
+print(f"power_target: {power_target}")
+power_target = (power_target * 96E3 * 1).astype(int)
 heat_target = heat_target / np.sum(heat_target)
-print(heat_target)
-heat_target = (heat_target * 9.6E4 * 3).astype(int)
+print(f"heat_target: {heat_target}")
+heat_target = (heat_target * 96E3 * 1).astype(int)
 
 value_weights = []
 schedules_provider = []
 for v in val:
-    value_weights.append({'convert_amount': v[0], 'gas_price': v[1], 'max_gas_amount': v[2], 'gas_to_heat_factor': v[3], 'gas_to_power_factor': v[4], 'power_to_heat_factor': v[5], 'power_to_heat_amount': v[6], 'power_penalty': power_penalty, 'heat_penalty': heat_penalty, 'power_kwh_price': power_kwh_price, 'heat_kwh_price': heat_kwh_price, 'converted_price': converted_price, 'penalty_exponent': penalty_exponent, 'max_iterations': max_iterations, 'maximum_agent_attempts': maximum_agent_attempts})
-    schedules_provider.append(v[7])
+    value_weights.append({'convert_amount': v[0], 'gas_price': v[1], 'max_gas_amount': v[2], 'gas_to_heat_factor': v[3], 'gas_to_power_factor': v[4], 'power_to_heat_factor': v[5], 'power_to_heat_amount': v[6], 'power_penalty': power_penalty, 'heat_penalty': heat_penalty, 'power_kwh_price': power_kwh_price, 'heat_kwh_price': heat_kwh_price, 'converted_price': converted_price, 'penalty_exponent': penalty_exponent, 'max_iterations': max_iterations, 'maximum_agent_attempts': maximum_agent_attempts, 'max_iteration_power': max_iteration_power})
+    if v[7] == 0:
+        schedules_provider.append([np.zeros(96)])
+    else:
+        schedules_provider.append(v[7])
 
 asyncio.run(test_case(
     power_target=power_target,

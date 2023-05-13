@@ -369,8 +369,7 @@ class COHDA:
                     list_of_outputs = []
                     max_iterations = float("inf")
                     if max_gas_amount > 0:
-                        max_iterations = self._value_weights['max_iterations'] * math.pow(math.ceil(math.log(max_gas_amount)), 2)
-                        max_iterations = self._value_weights['max_iterations']
+                        max_iterations = self._value_weights['max_iterations'] * math.pow(math.ceil(math.log(max_gas_amount)), self._value_weights['max_iteration_power'])
                     possible_gas_amounts = np.array(range(int(max_gas_amount) + 1))
                     if candidate.schedules[self._part_id] and 'gas_amount' in candidate.schedules[self._part_id].dict_schedules.keys() and candidate.schedules[self._part_id].dict_schedules['gas_amount'][timestamp]:
                         list_of_outputs.append(self.calculate_gas_amount(int(candidate.schedules[self._part_id].dict_schedules['gas_amount'][timestamp]), fixed_values))
@@ -474,13 +473,13 @@ class COHDA:
 
         global number
         number += 1
+        np.set_printoptions(linewidth=np.inf)
         if f"all" not in print_data.keys():
             print_data["all"] = ""
+        print_data[f"all"] += f"{number}\t{self._part_id}\t{current_best_candidate.perf:.2f}\t{np.sum(schedule_in_candidate.dict_schedules['power'])}\t{np.sum(schedule_in_candidate.dict_schedules['heat'])}\t{np.sum(schedule_in_candidate.dict_schedules['gas_amount'])}\t{np.sum(schedule_in_candidate.dict_schedules['power_to_heat'])}\t{np.sum(schedule_in_candidate.dict_schedules['power_to_conversion'])}\n"
         if f"{self._part_id}_heat" not in print_data.keys():
             print_data[f"{self._part_id}_heat"] = ""
             print_data[f"{self._part_id}_power"] = ""
-        np.set_printoptions(linewidth=np.inf)
-        print_data[f"all"] += f"{number}\t{self._part_id}\t{current_best_candidate.perf:.2f}\n"
         print_data[f"{self._part_id}_heat"] += f"{number}\t{self._part_id}\t{current_best_candidate.perf:.2f}\t{np.array(current_best_candidate.schedules[self._part_id].dict_schedules['heat']).astype(int)}\n"
         print_data[f"{self._part_id}_power"] += f"{number}\t{self._part_id}\t{current_best_candidate.perf:.2f}\t{np.array(current_best_candidate.schedules[self._part_id].dict_schedules['power']).astype(int)}\n"
 
