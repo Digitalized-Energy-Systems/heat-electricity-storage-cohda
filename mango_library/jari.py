@@ -167,7 +167,7 @@ async def wait_for_term(agents):
 """ test wind """
 
 
-def get_wind_schedule(maxv, number, sigma, cut, power):
+def get_wind_schedule(maxv, count, sigma, cut, power):
     day = []
     value = 0
     for i in range(96):
@@ -175,7 +175,7 @@ def get_wind_schedule(maxv, number, sigma, cut, power):
         for j in range(2):
             value = abs(min(maxv, value + r))
             day.append(int(pow(value, 3) / 10))
-    schedule = get_schedule(np.array(day[96:]), number, power, cut)
+    schedule = get_schedule(np.array(day[96:]), count, power, cut)
     return schedule
 
 
@@ -211,11 +211,11 @@ val = [
     [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
     [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
     [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0],
-    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
-    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
-    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
-    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
-    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
+    [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
     [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0],
     [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
     [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
@@ -223,11 +223,35 @@ val = [
     [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
     [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
     [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0],
-    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
-    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
-    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
-    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
-    [12, 0, 0, 0, 0, .9, 75, [get_wind_schedule(36, 5, 3.7, 0.1, .03)[0]]],
+    [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    # [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0],
+    # [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    # [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    # [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    # [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    # [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    # [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0],
+    # [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    # [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    # [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    # [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    # [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    # [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0],
+    # [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    # [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    # [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    # [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    # [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, .3, 200)],
+    # [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0],
+    # [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    # [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    # [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    # [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
+    # [12, 0, 0, 0, 0, .9, 75, get_wind_schedule(36, 5, 3.7, 0.1, .03)],
 ]
 power_target = [500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 550, 600, 650, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1700, 1700, 1700, 1650, 1600, 1550, 1500, 1450, 1400, 1350, 1300, 1300, 1300, 1500, 1700, 1900, 2100, 2300, 2500, 2500, 2500, 2450, 2400, 2350, 2300, 2250, 2200, 2150, 2100, 2050, 2000, 1950, 1900, 1850, 1850, 1850, 1850, 1900, 2000, 2100, 2200, 2200, 2200, 2100, 2000, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1800, 1700, 1500, 1300, 1100, 900, 700, 500],
 heat_target = [3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 2950, 2900, 2850, 2800, 2750, 2700, 2650, 2600, 2550, 2500, 2450, 2400, 2350, 2300, 2250, 2200, 2150, 2100, 2050, 2000, 1950, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1900, 1950, 2000, 2050, 2100, 2150, 2200, 2250, 2300, 2350, 2400, 2450, 2500, 2550, 2600, 2650, 2700, 2750, 2800, 2850, 2900, 2950, 3000],
@@ -247,7 +271,7 @@ schedules_provider = []
 for v in val:
     value_weights.append({'convert_amount': v[0], 'gas_price': v[1], 'max_gas_amount': v[2], 'gas_to_heat_factor': v[3], 'gas_to_power_factor': v[4], 'power_to_heat_factor': v[5], 'power_to_heat_amount': v[6], 'power_penalty': power_penalty, 'heat_penalty': heat_penalty, 'power_kwh_price': power_kwh_price, 'heat_kwh_price': heat_kwh_price, 'converted_price': converted_price, 'penalty_exponent': penalty_exponent, 'max_iterations': max_iterations, 'maximum_agent_attempts': maximum_agent_attempts, 'max_iteration_power': max_iteration_power})
     if v[7] == 0:
-        schedules_provider.append([np.zeros(96)])
+        schedules_provider.append([np.zeros(96).tolist()])
     else:
         schedules_provider.append(v[7])
 
