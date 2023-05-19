@@ -252,7 +252,7 @@ class COHDA:
                     max_perf = best_perf[best_perf_keys].perf
             diff = max_perf - min_perf
             maximum_agent_attempts = self._value_weights['maximum_agent_attempts']
-            if best_counter >= len(best_perf) * maximum_agent_attempts:
+            if best_counter >= len(best_perf) * maximum_agent_attempts and max_perf - min_perf < 1:
                 best_counter_end = True
             if best_counter_end:
                 print(Colors.BOLD, end="")
