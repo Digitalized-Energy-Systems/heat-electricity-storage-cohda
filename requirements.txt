@@ -5,3 +5,7 @@ numpy==1.24.3
 mango-agents==0.4.0
 setuptools==67.7.2
 pandas==2.0.1
+plotly
+kaleido
+networkx
+amplify-model==0.1.1

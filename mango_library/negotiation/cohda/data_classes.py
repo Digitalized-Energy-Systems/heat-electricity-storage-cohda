@@ -43,7 +43,9 @@ class EnergySchedules:
             if len(self.dict_schedules.keys()) == len(o.dict_schedules.keys()):
                 for dict_key in self.dict_schedules.keys():
                     if dict_key in o.dict_schedules:
-                        if not np.array_equal(self.dict_schedules[dict_key], o.dict_schedules[dict_key]):
+                        if not np.array_equal(
+                            self.dict_schedules[dict_key], o.dict_schedules[dict_key]
+                        ):
                             return False
                 return True
         return False
@@ -53,7 +55,9 @@ class EnergySchedules:
             dict_schedules = self.dict_schedules.copy()
             for dict_key in o.dict_schedules.keys():
                 if dict_key in dict_schedules.keys():
-                    dict_schedules[dict_key] = np.add(dict_schedules[dict_key], o.dict_schedules[dict_key])
+                    dict_schedules[dict_key] = np.add(
+                        dict_schedules[dict_key], o.dict_schedules[dict_key]
+                    )
                 else:
                     dict_schedules[dict_key] = o.dict_schedules[dict_key]
             perf = None
@@ -67,7 +71,9 @@ class EnergySchedules:
             dict_schedules = self.dict_schedules.copy()
             for dict_key in self.dict_schedules.keys():
                 if dict_key in o.dict_schedules.keys():
-                    dict_schedules[dict_key] = np.subtract(dict_schedules[dict_key], o.dict_schedules[dict_key])
+                    dict_schedules[dict_key] = np.subtract(
+                        dict_schedules[dict_key], o.dict_schedules[dict_key]
+                    )
             perf = None
             if self.perf is not None and o.perf is not None:
                 perf = self.perf - o.perf
@@ -116,6 +122,16 @@ class SolutionCandidate:
         self._schedules = schedules
         self._perf = None
 
+    def dataframe_expanded(self) -> pd.DataFrame:
+        rows = []
+        for agent, schedules in self._schedules.items():
+            for carrier, schedule in schedules.dict_schedules.items():
+                for i, value in enumerate(schedule):
+                    rows.append(
+                        {"step": i, "agent": agent, "sector": carrier, "value": value}
+                    )
+        return pd.DataFrame(rows)
+
     def __eq__(self, o: object) -> bool:
         if not isinstance(o, SolutionCandidate):
             return False
@@ -141,7 +157,9 @@ class SolutionCandidate:
                 if column in columns:
                     c_index = columns.index(column)
                     for d, dataVal in enumerate(new_data):
-                        data[d][c_index] = f"{data[d][c_index]} | {round(dataVal[c], 2)}"
+                        data[d][
+                            c_index
+                        ] = f"{data[d][c_index]} | {round(dataVal[c], 2)}"
                         # data[d][c_index] = f"{data[d][c_index]} | {int(dataVal[c])}"
                 else:
                     columns.append(column)
@@ -154,10 +172,10 @@ class SolutionCandidate:
                         data[d][c_index] = round(dataVal[c], 2)
                         # data[d][c_index] = int(dataVal[c])
         # pd.option_context('display.max_rows', None, 'display.max_columns', None, 'max_colwidth', None, 'display.expand_frame_repr', False)
-        pd.set_option('display.max_rows', None)
-        pd.set_option('display.max_columns', None)
-        pd.set_option('display.expand_frame_repr', False)
-        pd.set_option('max_colwidth', None)
+        pd.set_option("display.max_rows", None)
+        pd.set_option("display.max_columns", None)
+        pd.set_option("display.expand_frame_repr", False)
+        pd.set_option("max_colwidth", None)
         string += f"\n{pd.DataFrame(data=data, columns=columns)}"
         string += f"\n{pd.DataFrame(data=data2, columns=columns)}"
         return string
@@ -167,9 +185,17 @@ class SolutionCandidate:
         for schedule_key in self.schedules.keys():
             for dict_key in self.schedules[schedule_key].dict_schedules.keys():
                 if dict_key in dict_schedules.keys():
-                    dict_schedules[dict_key] = np.sum([dict_schedules[dict_key], self.schedules[schedule_key].dict_schedules[dict_key]], axis=0)
+                    dict_schedules[dict_key] = np.sum(
+                        [
+                            dict_schedules[dict_key],
+                            self.schedules[schedule_key].dict_schedules[dict_key],
+                        ],
+                        axis=0,
+                    )
                 else:
-                    dict_schedules[dict_key] = self.schedules[schedule_key].dict_schedules[dict_key]
+                    dict_schedules[dict_key] = self.schedules[
+                        schedule_key
+                    ].dict_schedules[dict_key]
         return EnergySchedules(dict_schedules=dict_schedules)
 
     @property
@@ -228,17 +254,29 @@ class SolutionCandidate:
         """
         cluster_schedule = EnergySchedules(dict_schedules={})
         for agent_energy_schedules in list(self.schedules.values()):
-            for energy_schedule_key in list(agent_energy_schedules.dict_schedules.keys()):
+            for energy_schedule_key in list(
+                agent_energy_schedules.dict_schedules.keys()
+            ):
                 dict_schedules = cluster_schedule.dict_schedules
                 if energy_schedule_key in dict_schedules:
-                    dict_schedules[energy_schedule_key] = np.sum([dict_schedules[energy_schedule_key], agent_energy_schedules[energy_schedule_key]], axis=0)
+                    dict_schedules[energy_schedule_key] = np.sum(
+                        [
+                            dict_schedules[energy_schedule_key],
+                            agent_energy_schedules[energy_schedule_key],
+                        ],
+                        axis=0,
+                    )
                 else:
-                    dict_schedules[energy_schedule_key] = agent_energy_schedules.dict_schedules[energy_schedule_key]
+                    dict_schedules[
+                        energy_schedule_key
+                    ] = agent_energy_schedules.dict_schedules[energy_schedule_key]
                 cluster_schedule.dict_schedules = dict_schedules
         return cluster_schedule
 
     @classmethod
-    def create_from_updated_sysconf(cls, sysconfig, agent_id: str, new_energy_schedule: EnergySchedules):
+    def create_from_updated_sysconf(
+        cls, sysconfig, agent_id: str, new_energy_schedule: EnergySchedules
+    ):
         """
         Creates a Candidate based on the cluster schedule of a SystemConfiguration,
         which is changed only for *agent_id* towards *new_schedule*
@@ -248,7 +286,9 @@ class SolutionCandidate:
         :param new_energy_schedule: the new EnergySchedules for *agent_id*
         :return: A new SolutionCandidate object (without calculated performance!)
         """
-        schedule_dict = {k: v.energy_schedules for k, v in sysconfig.schedule_choices.items()}
+        schedule_dict = {
+            k: v.energy_schedules for k, v in sysconfig.schedule_choices.items()
+        }
         schedule_dict[agent_id] = new_energy_schedule
         return cls(agent_id=agent_id, schedules=schedule_dict)
 
@@ -264,9 +304,11 @@ class ScheduleSelection:
         self._counter = counter
 
     def __eq__(self, o: object) -> bool:
-        return isinstance(o, ScheduleSelection) \
-            and self.counter == o.counter \
+        return (
+            isinstance(o, ScheduleSelection)
+            and self.counter == o.counter
             and self.energy_schedules == o.energy_schedules
+        )
 
     def __str__(self):
         return "ScheduleSelection: " + str(self.energy_schedules)
@@ -298,12 +340,20 @@ class SystemConfig:
         self._schedule_choices = schedule_choices
 
     def __eq__(self, o: object) -> bool:
-        return isinstance(o, SystemConfig) and self._schedule_choices == o._schedule_choices
+        return (
+            isinstance(o, SystemConfig)
+            and self._schedule_choices == o._schedule_choices
+        )
 
     def __str__(self):
         string = "SystemConfig"
         for schedule_keys in self.schedule_choices.keys():
-            string += "\n" + schedule_keys + " " + self.schedule_choices[schedule_keys].__str__()
+            string += (
+                "\n"
+                + schedule_keys
+                + " "
+                + self.schedule_choices[schedule_keys].__str__()
+            )
         return string
 
     @property
@@ -320,16 +370,21 @@ class SystemConfig:
         Return the cluster schedule of the current sysconfig
         :return: the cluster schedule as np.array
         """
-        return np.array([selection.energy_schedules for selection in self.schedule_choices.values()])
+        return np.array(
+            [selection.energy_schedules for selection in self.schedule_choices.values()]
+        )
 
 
 @json_serializable
 class WorkingMemory:
-    """Working memory of a COHDA agent
-    """
+    """Working memory of a COHDA agent"""
 
-    def __init__(self, target_params, system_config: SystemConfig,
-                 solution_candidate: SolutionCandidate):
+    def __init__(
+        self,
+        target_params,
+        system_config: SystemConfig,
+        solution_candidate: SolutionCandidate,
+    ):
         self._target_params = target_params
         self._system_config = system_config
         self._solution_candidate = solution_candidate
@@ -353,8 +408,8 @@ class WorkingMemory:
     @property
     def system_config(self) -> SystemConfig:
         """
-       The system config as SystemConfig
-        :return: the believed system state
+        The system config as SystemConfig
+         :return: the believed system state
         """
         return self._system_config
 
@@ -383,5 +438,9 @@ class WorkingMemory:
         self._solution_candidate = new_solution_candidate
 
     def __eq__(self, o: object) -> bool:
-        return isinstance(o, WorkingMemory) and self.solution_candidate == o.solution_candidate \
-            and self.system_config == o.system_config and self.target_params == o.target_params
+        return (
+            isinstance(o, WorkingMemory)
+            and self.solution_candidate == o.solution_candidate
+            and self.system_config == o.system_config
+            and self.target_params == o.target_params
+        )
