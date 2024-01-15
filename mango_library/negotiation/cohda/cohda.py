@@ -104,6 +104,23 @@ number = 0
 print_data = {}
 """ globals """
 
+def reset_globals():
+    global start_time
+    global global_start_time
+    global best_perf
+    global best_counter
+    global best_counter_end
+    global number
+    global print_data
+    
+    start_time = {Colors.BACKGROUND_LIGHT_MAGENTA: time.time()}
+    global_start_time = time.time()
+    best_perf = {}
+    best_counter = 0
+    best_counter_end = False
+    number = 0
+    print_data = {}
+
 
 def get_time(color):
     global start_time

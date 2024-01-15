@@ -852,5 +852,7 @@ if __name__ == "__main__":
     os.makedirs(f"log/{run_id}")
 
     case_storage_improvement(run_id)
+    reset_globals()
     case_industry(run_id)
+    reset_globals()
     case_hh(run_id)
