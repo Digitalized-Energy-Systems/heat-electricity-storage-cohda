@@ -663,6 +663,7 @@ def case_hh(run_id):
             heat_target=heat_target,
             value_weights=value_weights,
             schedules_provider=schedules_provider,
+            storages=[],
             name=run_id + "/hh",
         )
     )
@@ -748,6 +749,7 @@ def case_industry(run_id):
             heat_target=heat_target,
             value_weights=value_weights,
             schedules_provider=schedules_provider,
+            storages=[],
             name=run_id + "/industry",
         )
     )
