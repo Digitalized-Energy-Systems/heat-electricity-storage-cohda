@@ -918,8 +918,8 @@ def case_industry(run_id):
         [900, 999 * 0.11 / 430, 710, 951 / 430, 999 / 430, 0, 0, 0, "CHP"],
     ]
 
-    power_target = POWER_TARGET_I[0] + np.ones(96) * 500
-    heat_target = HEAT_TARGET_I[0] + np.ones(96) * 3
+    power_target = POWER_TARGET_I[0] + np.ones(96) * 2000
+    heat_target = HEAT_TARGET_I[0] + np.ones(96) * 2000
     # power_target = np.ones(96)
     # heat_target = np.ones(96)
     power_target = power_target / np.sum(power_target)
@@ -1012,8 +1012,8 @@ def case_storage_improvement(run_id):
         ["power", 300, 300, 3000, 0.95, 0.95, 0.5, 0.1],
     ]
 
-    power_target = POWER_TARGET_I[0] + np.ones(96) * 500
-    heat_target = HEAT_TARGET_I[0] + np.ones(96) * 3
+    power_target = POWER_TARGET_I[0] + np.ones(96) * 2000
+    heat_target = HEAT_TARGET_I[0] + np.ones(96) * 2000
     # power_target = np.ones(96)
     # heat_target = np.ones(96)
     power_target = power_target / np.sum(power_target)
