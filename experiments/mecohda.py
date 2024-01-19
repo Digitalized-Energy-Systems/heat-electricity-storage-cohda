@@ -907,7 +907,7 @@ def case_industry(run_id):
         [12, 0, 0, 0, 0, 0.9, 750, get_solar_schedule(5, 0.3, -800), "SOLAR"],
         [12, 0, 0, 0, 0, 0.9, 750, get_solar_schedule(5, 0.3, -800), "SOLAR"],
         [12, 0, 0, 0, 0, 0.9, 750, get_solar_schedule(5, 0.3, -800), "SOLAR"],
-        [1500, 999 * 0.11 / 430, 1250, 951 / 430, 999 / 430, 0, 0, 0],
+        [1500, 999 * 0.11 / 430, 1250, 951 / 430, 999 / 430, 0, 0, 0, "CHP"],
         [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 800), "SOLAR"],
         [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 800), "SOLAR"],
         [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 800), "SOLAR"],
@@ -998,10 +998,10 @@ def case_storage_improvement(run_id):
     ]
     # sector, max_p_bat, min_p_bat, capacity, eff_charge, eff_discharge, start_soc, end_min_soc (all in W/Wh)
     storages = [
-        ["heat", 200, 200, 2000, 0.9, 0.9, 0.5, 0.1],
-        ["power", 200, 200, 2000, 0.9, 0.9, 0.5, 0.1],
-        ["heat", 300, 300, 3000, 0.85, 0.85, 0.5, 0.1],
-        ["power", 300, 300, 3000, 0.95, 0.95, 0.5, 0.1],
+        ["heat", 400, -400, 4000, 0.9, 0.9, 0.5, 0.1],
+        ["power", 400, -400, 4000, 0.9, 0.9, 0.5, 0.1],
+        ["heat", 600, -600, 6000, 0.85, 0.85, 0.5, 0.1],
+        ["power", 600, -600, 6000, 0.95, 0.95, 0.5, 0.1],
     ]
 
     power_target = POWER_TARGET_I[0] + np.ones(96) * 500

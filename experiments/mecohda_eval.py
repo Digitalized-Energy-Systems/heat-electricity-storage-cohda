@@ -7,7 +7,7 @@ import pandas as pd
 OUTPUT = "data/out/"
 INPUT = "log/"
 
-MAIN_EVAL_ID = "4aec110e-b527-11ee-a8d0-387c767c9fc6"
+MAIN_EVAL_ID = "df8b8f7e-b536-11ee-ba32-387c767c9ca1"
 SCENARIOS = ["hh", "industry", "storage"]
 
 
