@@ -7,7 +7,7 @@ import pandas as pd
 OUTPUT = "data/out/"
 INPUT = "log/"
 
-MAIN_EVAL_ID = "df8b8f7e-b536-11ee-ba32-387c767c9ca1"
+MAIN_EVAL_ID = "d0fcdeb0-b6bf-11ee-a40c-387c767ca904"
 SCENARIOS = ["hh", "industry", "storage"]
 
 
@@ -53,7 +53,7 @@ def to_type(agent):
 CONVERT_MAP_MAIN_C = {"power": "Unnamed: 1", "heat": "Unnamed: 4"}
 
 
-def create_stacked_plot(results_df, cs_df, name, scenario):
+def create_stacked_plot(results_df: pd.DataFrame, cs_df: pd.DataFrame, name, scenario):
     figures = []
 
     for sector in [
@@ -68,12 +68,16 @@ def create_stacked_plot(results_df, cs_df, name, scenario):
             if sector in CONVERT_MAP_MAIN_C and CONVERT_MAP_MAIN_C[sector] in cs_df
             else None
         )
+        this_df = (
+            results_df[results_df["sector"] == sector]
+            .groupby(["agent_type", "step"])
+            .sum()
+            .reset_index()
+            .sort_values(by="agent_type", ascending=False)
+        )
         figures += [
             eval.create_area_with_df(
-                results_df[results_df["sector"] == sector]
-                .groupby(["agent_type", "step"])
-                .sum()
-                .reset_index(),
+                this_df,
                 "step",
                 "value",
                 "agent_type",

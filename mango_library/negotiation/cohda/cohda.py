@@ -112,7 +112,7 @@ def reset_globals():
     global best_counter_end
     global number
     global print_data
-    
+
     start_time = {Colors.BACKGROUND_LIGHT_MAGENTA: time.time()}
     global_start_time = time.time()
     best_perf = {}
@@ -481,10 +481,10 @@ class COHDA:
                 t_start=0,
             )
 
-            schedule = flex.flex_with_mpo.allowed_max_power
+            schedule = flex.flex_with_mpo.allowed_min_power
             new_candidate_schedules = copy(current_best_candidate.schedules)
             new_candidate_schedules[self._part_id] = EnergySchedules(
-                dict_schedules={
+                dict_schedules = {
                     "power": schedule
                     if is_power_storage
                     else np.full(len(schedule), 0),
