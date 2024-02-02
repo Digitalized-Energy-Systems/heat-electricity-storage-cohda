@@ -15,8 +15,8 @@ pio.templates["publish"] = go.layout.Template(
 )
 pio.templates["publish3"] = go.layout.Template(
     layout=go.Layout(
-        font=dict(family="sans-serif", size=19),
-        titlefont=dict(family="sans-serif", size=19),
+        font=dict(family="sans-serif", size=22),
+        titlefont=dict(family="sans-serif", size=22),
     )
 )
 pio.templates["publish2"] = go.layout.Template(
@@ -372,9 +372,10 @@ def create_area_with_df(
                 y=y_data,
                 mode="lines",
                 name="target",
-                line=dict(color="black", width=3),
+                line=dict(color="gray", width=5),
             )
         )
+    fig.update_traces(line=dict(width=4))
     return fig
 
 
@@ -693,4 +694,60 @@ def create_networkx_plot(
         + color_edges
     )
     fig.layout.coloraxis.cmax = max_color_val
+    return fig
+
+
+def create_variance_plot(
+    x,
+    y,
+    lower,
+    upper,
+    color="rgb(0,100,80)",
+    fillcolor="rgba(0,100,80,0.2)",
+    variance_color="rgba(255,255,255,0)",
+    title=None,
+    height=400,
+    width=600,
+    template="plotly_white+publish",
+    legend_text=None,
+    xaxis_title=None,
+    yaxis_title=None,
+    legend_y=0.2,
+    legend_x=0.8,
+    log_y=False,
+    name="mean",
+    line_width=2,
+):
+    fig = go.Figure(
+        [
+            go.Scatter(
+                x=x,
+                y=y,
+                line=dict(color=color, width=line_width),
+                mode="lines",
+                name=name,
+            ),
+            go.Scatter(
+                x=x + x[::-1],  # x, then x reversed
+                y=upper + lower[::-1],  # upper, then lower reversed
+                fill="toself",
+                fillcolor=fillcolor,
+                line=dict(color=variance_color),
+                hoverinfo="skip",
+                showlegend=False,
+            ),
+        ]
+    )
+    fig.update_layout(
+        height=height,
+        width=width,
+        margin={"l": 30, "b": 40, "r": 20, "t": 40},
+        legend={"title": legend_text, "y": legend_y, "x": legend_x},
+        xaxis_title=xaxis_title,
+        yaxis_title=yaxis_title,
+        title=title,
+        template=template,
+    )
+    if log_y:
+        fig.update_yaxes(type="log", dtick=1)
     return fig

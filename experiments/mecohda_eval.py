@@ -3,11 +3,12 @@ from pathlib import Path
 import evaluation as eval
 import plotly.express as px
 import pandas as pd
+import numpy as np
 
 OUTPUT = "data/out/"
 INPUT = "log/"
 
-MAIN_EVAL_ID = "465280a2-c1d8-11ee-85a7-387c767c9f80"
+MAIN_EVAL_ID = "3135825c-c1e0-11ee-b562-387c767ca258"
 SCENARIOS = ["hh", "industry", "storage"]
 
 
@@ -34,6 +35,26 @@ def create_convergence_graph(history_df, name, scenario):
         )
     ]
     titles += [f"Convergence of the agents' performance ({scenario})"]
+    history_df["cycle"] = history_df["iteration"] // (
+        len(pd.unique(history_df["agent"])) / 2
+    )
+    std = history_df.groupby("cycle")["performance"].std().reset_index()["performance"]
+    mean = history_df.groupby("cycle").mean().reset_index()["performance"]
+
+    figures += [
+        eval.create_variance_plot(
+            x=list(range(len(mean))),
+            y=list(mean),
+            lower=list(mean - std),
+            upper=list(mean + std),
+            xaxis_title="cycle",
+            yaxis_title="performance",
+            log_y=True,
+            template="plotly_white+publish3",
+            line_width=3,
+        )
+    ]
+    titles += [f"Mean convergence and deviation of the agents ({scenario})"]
 
     eval.write_all_in_one(
         figures,
@@ -53,7 +74,12 @@ def to_type(agent):
 
 
 CONVERT_MAP_MAIN_C = {"power": "Unnamed: 1", "heat": "Unnamed: 4"}
-TYPE_TO_COLOR = {"SOLAR": "#cca121", "STORAGE": "#2f8191", "CHP": "#c93636"}
+TYPE_TO_COLOR = {
+    "SOLAR": "rgb(255,231,111)",
+    "STORAGE": "rgb(179,222,105)",
+    "CHP": "rgb(251,128,114)",
+    "WIND": "rgb(128,177,211)",
+}
 SECTOR_TO_Y_AXIS = {
     "power": "electric power",
     "heat": "heat power",
@@ -103,7 +129,7 @@ def create_stacked_plot(results_df: pd.DataFrame, cs_df: pd.DataFrame, name, sce
                 y_data=y_data,
                 x_data=None if y_data is None else list(range(96)),
                 pattern_shape="agent_type",
-                pattern_shape_sequence=[".", "x", "/"],
+                pattern_shape_sequence=[".", "/", "\\"],
             )
         ]
 
