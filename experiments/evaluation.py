@@ -323,6 +323,7 @@ def create_area_with_df(
     legend_y=0.2,
     legend_x=0.8,
     color_discrete_sequence=None,
+    color_discrete_map=None,
     x_data=None,
     y_data=None,
 ):
@@ -335,6 +336,7 @@ def create_area_with_df(
         title=title,
         template=template,
         color_discrete_sequence=color_discrete_sequence,
+        color_discrete_map=color_discrete_map,
     )
     fig.update_layout(
         height=height,
@@ -537,12 +539,14 @@ def create_networkx_plot(
                 y=y_edges[i],
                 line=dict(
                     width=3,
-                    color="rgb(0,0,0)"
-                    if max(color_edges) == 0
-                    else px.colors.sample_colorscale(
-                        px.colors.sequential.Sunsetdark,
-                        (color_edges[i] / max_color_val) + min(color_edges),
-                    )[0],
+                    color=(
+                        "rgb(0,0,0)"
+                        if max(color_edges) == 0
+                        else px.colors.sample_colorscale(
+                            px.colors.sequential.Sunsetdark,
+                            (color_edges[i] / max_color_val) + min(color_edges),
+                        )[0]
+                    ),
                 ),
                 hoverinfo="text",
                 mode="lines",

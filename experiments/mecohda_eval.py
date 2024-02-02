@@ -7,7 +7,7 @@ import pandas as pd
 OUTPUT = "data/out/"
 INPUT = "log/"
 
-MAIN_EVAL_ID = "d0fcdeb0-b6bf-11ee-a40c-387c767ca904"
+MAIN_EVAL_ID = "99c88efa-c149-11ee-a80b-387c767ca274"
 SCENARIOS = ["hh", "industry", "storage"]
 
 
@@ -51,6 +51,7 @@ def to_type(agent):
 
 
 CONVERT_MAP_MAIN_C = {"power": "Unnamed: 1", "heat": "Unnamed: 4"}
+TYPE_TO_COLOR = {"SOLAR": "#cca121", "STORAGE": "#2f8191", "CHP": "#91432f"}
 
 
 def create_stacked_plot(results_df: pd.DataFrame, cs_df: pd.DataFrame, name, scenario):
@@ -88,7 +89,7 @@ def create_stacked_plot(results_df: pd.DataFrame, cs_df: pd.DataFrame, name, sce
                 legend_text="source",
                 legend_x=0,
                 legend_y=-0.35,
-                color_discrete_sequence=px.colors.qualitative.Pastel1,
+                color_discrete_map=TYPE_TO_COLOR,
                 y_data=y_data,
                 x_data=None if y_data is None else list(range(96)),
             )
