@@ -60,8 +60,18 @@ START_ALL_IN_ONE = '<h1>{}</h1><div style="display: flex;align-items: center;fle
 END_ALL_IN_ONE = "</div>"
 
 
+def get_title(fig, index, titles):
+    if hasattr(fig.layout, "title") and fig.layout.title.text:
+        return fig.layout.title.text
+    return titles[index]
+
+
+def slugify(str: str):
+    return str.replace("/", "").replace("<", "").replace(">", "")
+
+
 def write_all_in_one(
-    figures, scenario_name, out_path, out_filename, write_single_files=True
+    figures, scenario_name, out_path, out_filename, write_single_files=True, titles=None
 ):
     out_path.mkdir(parents=True, exist_ok=True)
     (out_path / out_filename).parent.mkdir(parents=True, exist_ok=True)
@@ -81,15 +91,15 @@ def write_all_in_one(
     if write_single_files:
         path_single_files = (out_path / out_filename).parent / "single"
         path_single_files.mkdir(parents=True, exist_ok=True)
-        for fig in figures:
+        for i, fig in enumerate(figures):
             fig.write_image(
                 path_single_files
                 / (
-                    fig.layout.title.text
+                    get_title(fig, i, titles)
                     + "-"
-                    + fig.layout.xaxis.title.text
+                    + slugify(fig.layout.xaxis.title.text)
                     + "-"
-                    + fig.layout.yaxis.title.text
+                    + slugify(fig.layout.yaxis.title.text)
                     + ".pdf"
                 )
             )
@@ -313,6 +323,8 @@ def create_area_with_df(
     y_label,
     color_label,
     line_group=None,
+    pattern_shape=None,
+    pattern_shape_sequence=None,
     title=None,
     height=400,
     width=600,
@@ -337,6 +349,8 @@ def create_area_with_df(
         template=template,
         color_discrete_sequence=color_discrete_sequence,
         color_discrete_map=color_discrete_map,
+        pattern_shape=pattern_shape,
+        pattern_shape_sequence=pattern_shape_sequence,
     )
     fig.update_layout(
         height=height,

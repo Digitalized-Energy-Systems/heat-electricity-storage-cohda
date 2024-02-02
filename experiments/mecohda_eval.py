@@ -13,6 +13,7 @@ SCENARIOS = ["hh", "industry", "storage"]
 
 def create_convergence_graph(history_df, name, scenario):
     figures = []
+    titles = []
 
     figures += [
         eval.create_scatter_with_df(
@@ -21,7 +22,6 @@ def create_convergence_graph(history_df, name, scenario):
             "performance",
             "agent",
             color_discrete_sequence=None,
-            title=f"Convergence of the agents' performance ({scenario})",
             yaxis_title="performance",
             xaxis_title="iteration",
             legend_text="agent",
@@ -33,12 +33,14 @@ def create_convergence_graph(history_df, name, scenario):
             symbol_seq=["x"],
         )
     ]
+    titles += [f"Convergence of the agents' performance ({scenario})"]
 
     eval.write_all_in_one(
         figures,
         "Figure",
         Path("."),
         OUTPUT + f"/{name}/convergence_{scenario}.html",
+        titles=titles,
     )
 
 
@@ -51,11 +53,19 @@ def to_type(agent):
 
 
 CONVERT_MAP_MAIN_C = {"power": "Unnamed: 1", "heat": "Unnamed: 4"}
-TYPE_TO_COLOR = {"SOLAR": "#cca121", "STORAGE": "#2f8191", "CHP": "#91432f"}
+TYPE_TO_COLOR = {"SOLAR": "#cca121", "STORAGE": "#2f8191", "CHP": "#c93636"}
+SECTOR_TO_Y_AXIS = {
+    "power": "electricity power",
+    "heat": "heat power",
+    "gas_amount": "gas power",
+    "power_to_heat": "p2h power",
+    "power_to_conversion": "conversion power",
+}
 
 
 def create_stacked_plot(results_df: pd.DataFrame, cs_df: pd.DataFrame, name, scenario):
     figures = []
+    titles = []
 
     for sector in [
         "power",
@@ -76,6 +86,7 @@ def create_stacked_plot(results_df: pd.DataFrame, cs_df: pd.DataFrame, name, sce
             .reset_index()
             .sort_values(by="agent_type", ascending=False)
         )
+        titles += [f"Stacked schedules of the agents by type for {sector} ({scenario})"]
         figures += [
             eval.create_area_with_df(
                 this_df,
@@ -83,15 +94,16 @@ def create_stacked_plot(results_df: pd.DataFrame, cs_df: pd.DataFrame, name, sce
                 "value",
                 "agent_type",
                 # line_group="agent_type",
-                title=f"Stacked schedules of the agents by type for {sector} ({scenario})",
-                yaxis_title="energy",
-                xaxis_title="time",
-                legend_text="source",
+                yaxis_title=SECTOR_TO_Y_AXIS[sector],
+                xaxis_title="step",
+                legend_text="type",
                 legend_x=0,
-                legend_y=-0.35,
+                legend_y=1.15,
                 color_discrete_map=TYPE_TO_COLOR,
                 y_data=y_data,
                 x_data=None if y_data is None else list(range(96)),
+                pattern_shape="agent_type",
+                pattern_shape_sequence=[".", "x", "/"],
             )
         ]
 
@@ -100,6 +112,7 @@ def create_stacked_plot(results_df: pd.DataFrame, cs_df: pd.DataFrame, name, sce
         "Figure",
         Path("."),
         OUTPUT + f"/{name}/stacked_{scenario}.html",
+        titles=titles,
     )
 
 

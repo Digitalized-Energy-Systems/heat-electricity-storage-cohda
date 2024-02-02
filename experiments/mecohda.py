@@ -342,9 +342,9 @@ async def test_case(
         bsc_expanded["agent"]
         .astype(int)
         .apply(
-            lambda v: "STORAGE"
-            if v >= len(value_weights)
-            else value_weights[v]["name"],
+            lambda v: (
+                "STORAGE" if v >= len(value_weights) else value_weights[v]["name"]
+            ),
         )
     )
 
@@ -414,7 +414,6 @@ async def test_case(
     )
     f.close()
 
-    global print_data
     i = 0
     # for part in print_data:
     part = "all"
@@ -606,8 +605,8 @@ def case_hh(run_id):
         [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0, "CHP"],
         [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
         [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
-        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
-        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 100), "SOLAR"],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 100), "SOLAR"],
         [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
         [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0, "CHP"],
         [12, 0, 0, 0, 0, 0.9, 75, get_wind_schedule(36, 5, 3.7, 0.1, 0.03), "WIND"],
@@ -618,8 +617,8 @@ def case_hh(run_id):
         [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0, "CHP"],
         [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
         [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
-        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
-        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 100), "SOLAR"],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 100), "SOLAR"],
         [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
         [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0, "CHP"],
         [12, 0, 0, 0, 0, 0.9, 75, get_wind_schedule(36, 5, 3.7, 0.1, 0.03), "WIND"],
