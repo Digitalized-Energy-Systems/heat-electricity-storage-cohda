@@ -7,7 +7,7 @@ import pandas as pd
 OUTPUT = "data/out/"
 INPUT = "log/"
 
-MAIN_EVAL_ID = "99c88efa-c149-11ee-a80b-387c767ca274"
+MAIN_EVAL_ID = "465280a2-c1d8-11ee-85a7-387c767c9f80"
 SCENARIOS = ["hh", "industry", "storage"]
 
 
@@ -55,7 +55,7 @@ def to_type(agent):
 CONVERT_MAP_MAIN_C = {"power": "Unnamed: 1", "heat": "Unnamed: 4"}
 TYPE_TO_COLOR = {"SOLAR": "#cca121", "STORAGE": "#2f8191", "CHP": "#c93636"}
 SECTOR_TO_Y_AXIS = {
-    "power": "electricity power",
+    "power": "electric power",
     "heat": "heat power",
     "gas_amount": "gas power",
     "power_to_heat": "p2h power",

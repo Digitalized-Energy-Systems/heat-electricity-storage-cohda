@@ -7,6 +7,8 @@ from mango.role.core import RoleAgent
 
 from mango_library.coalition.core import *
 from mango_library.negotiation.cohda.cohda import *
+import mango_library.negotiation.cohda.cohda as cohda
+
 from mango_library.negotiation.termination import NegotiationTerminationRole
 from mango_library.negotiation.cohda.data_classes import EnergySchedules
 
@@ -418,11 +420,11 @@ async def test_case(
     # for part in print_data:
     part = "all"
     f = open(f"{filename}_{part}.txt", "a")
-    f.write(print_data[part])
+    f.write(cohda.print_data[part])
     f.close()
     i += 1
 
-    print_data_all_rows = print_data[part].split("\n")[:-1]
+    print_data_all_rows = cohda.print_data[part].split("\n")[:-1]
     df_rows = []
     for row in print_data_all_rows:
         cells = row.split("\t")
@@ -1053,7 +1055,9 @@ if __name__ == "__main__":
     os.makedirs(f"log/{run_id}")
 
     case_storage_improvement(run_id)
+    cohda.print_data = {}
     reset_globals()
     case_industry(run_id)
+    cohda.print_data = {}
     reset_globals()
     case_hh(run_id)
