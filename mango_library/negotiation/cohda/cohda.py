@@ -1,6 +1,7 @@
 """Module for distributed real power planning with COHDA. Contains roles, which
 integrate COHDA in the negotiation system and the core COHDA-decider together with its model.
 """
+
 import asyncio
 import logging
 import math
@@ -103,6 +104,7 @@ best_counter_end = False
 number = 0
 print_data = {}
 """ globals """
+
 
 def reset_globals():
     global start_time
@@ -483,21 +485,53 @@ class COHDA:
 
             schedule = flex.flex_with_mpo.allowed_min_power
             new_candidate_schedules = copy(current_best_candidate.schedules)
+            fixed_values = {
+                "heat_open": open_schedule.dict_schedules["heat"],
+                "power_open": open_schedule.dict_schedules["power"],
+            }
+            energy_weight = (
+                self._value_weights["power_kwh_price"]
+                if is_power_storage
+                else self._value_weights["heat_kwh_price"]
+            )
+            power_global_penalty = 0
+            heat_global_penalty = 0
+            if is_power_storage:
+                power_global_penalty = (
+                    -np.power(
+                        np.absolute(
+                            np.array(schedule) - open_schedule.dict_schedules["power"]
+                        ),
+                        self._value_weights["penalty_exponent"],
+                    )
+                    * self._value_weights["power_penalty"]
+                )
+            else:
+                heat_global_penalty = (
+                    -np.power(
+                        np.absolute(np.array(schedule) - fixed_values["heat_open"]),
+                        self._value_weights["penalty_exponent"],
+                    )
+                    * self._value_weights["heat_penalty"]
+                )
+            value = (
+                -sum(energy_weight * np.array(schedule))
+                + power_global_penalty
+                + heat_global_penalty
+            )
             new_candidate_schedules[self._part_id] = EnergySchedules(
-                dict_schedules = {
-                    "power": schedule
-                    if is_power_storage
-                    else np.full(len(schedule), 0),
-                    "heat": schedule
-                    if not is_power_storage
-                    else np.full(len(schedule), 0),
+                dict_schedules={
+                    "power": (
+                        schedule if is_power_storage else np.full(len(schedule), 0)
+                    ),
+                    "heat": (
+                        schedule if not is_power_storage else np.full(len(schedule), 0)
+                    ),
                     "gas_amount": np.full(len(schedule), 0),
                     "power_to_heat": np.full(len(schedule), 0),
                     "power_to_conversion": np.full(len(schedule), 0),
                 },
-                perf=0
-                if new_candidate_schedules[self._part_id].perf is None
-                else new_candidate_schedules[self._part_id].perf + 1,
+                perf=value,
             )
             new_candidate = SolutionCandidate(
                 agent_id=self._part_id, schedules=new_candidate_schedules
@@ -790,8 +824,21 @@ class COHDA:
 
         return sysconfig, current_best_candidate
 
+    def _calc_global_penalty(self, fixed_values, end_power, end_heat):
+        return (
+            -np.power(
+                np.absolute(end_power - fixed_values["power_open"]),
+                self._value_weights["penalty_exponent"],
+            )
+            * self._value_weights["power_penalty"]
+            - np.power(
+                np.absolute(end_heat - fixed_values["heat_open"]),
+                self._value_weights["penalty_exponent"],
+            )
+            * self._value_weights["heat_penalty"]
+        )
+
     def calculate_gas_amount(self, gas_amount, fixed_values):
-        penalty_exponent = self._value_weights["penalty_exponent"]
         gas_to_power = gas_amount * self._value_weights["gas_to_power_factor"]
         gas_to_heat = gas_amount * self._value_weights["gas_to_heat_factor"]
         power_to_heat = 0
@@ -837,14 +884,7 @@ class COHDA:
             end_power * self._value_weights["power_kwh_price"]
             + end_heat * self._value_weights["heat_kwh_price"]
             + power_to_conversion * self._value_weights["converted_price"]
-            - np.power(
-                np.absolute(end_power - fixed_values["power_open"]), penalty_exponent
-            )
-            * self._value_weights["power_penalty"]
-            - np.power(
-                np.absolute(end_heat - fixed_values["heat_open"]), penalty_exponent
-            )
-            * self._value_weights["heat_penalty"]
+            + self._calc_global_penalty(fixed_values, end_power, end_heat)
             - gas_amount * self._value_weights["gas_price"]
         )
 
@@ -882,12 +922,12 @@ class COHDA:
         returned, otherwise a new object is created.
         """
 
-        sysconfig_i_schedules: Dict[
-            str, ScheduleSelection
-        ] = sysconfig_i.schedule_choices
-        sysconfig_j_schedules: Dict[
-            str, ScheduleSelection
-        ] = sysconfig_j.schedule_choices
+        sysconfig_i_schedules: Dict[str, ScheduleSelection] = (
+            sysconfig_i.schedule_choices
+        )
+        sysconfig_j_schedules: Dict[str, ScheduleSelection] = (
+            sysconfig_j.schedule_choices
+        )
         key_set_i = set(sysconfig_i_schedules.keys())
         key_set_j = set(sysconfig_j_schedules.keys())
 
