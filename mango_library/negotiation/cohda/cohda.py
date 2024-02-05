@@ -514,8 +514,8 @@ class COHDA:
                     )
                     * self._value_weights["heat_penalty"]
                 )
-            value = (
-                -sum(energy_weight * np.array(schedule))
+            value = sum(
+                energy_weight * np.array(schedule)
                 + power_global_penalty
                 + heat_global_penalty
             )
