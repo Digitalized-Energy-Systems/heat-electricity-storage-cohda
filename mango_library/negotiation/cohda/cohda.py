@@ -452,12 +452,6 @@ class COHDA:
         current_best_candidate.perf = float("-inf")
 
         if self._is_storage:
-            deviation_from_ts_schedule = target_schedule
-            for agent_id in candidate.schedules.keys():
-                deviation_from_ts_schedule = (
-                    deviation_from_ts_schedule - candidate.schedules[agent_id]
-                )
-
             # include amplify and use greedy heuristic to determine the schedule
             flex_calc = FlexCalculator(
                 max_p_bat=self._storage[1],
@@ -469,13 +463,13 @@ class COHDA:
             is_power_storage = self._storage[0] == "power"
             flex: FlexibilityCalculation = flex_calc.calculate_total_flex(
                 forecast=np.full(
-                    len(deviation_from_ts_schedule.dict_schedules["power"]), 0
+                    len(open_schedule.dict_schedules["power"]), 0
                 ),
                 p_max_ps=np.full(
-                    len(deviation_from_ts_schedule.dict_schedules["power"]),
+                    len(open_schedule.dict_schedules["power"]),
                     self._storage[1],
                 ),
-                mpos=deviation_from_ts_schedule.dict_schedules[self._storage[0]],
+                mpos=open_schedule.dict_schedules[self._storage[0]],
                 curr_soc=self._storage[6],
                 final_min_soc=self._storage[7],
                 avg_p_bat_of_curr_interval=0,
@@ -502,7 +496,7 @@ class COHDA:
                         np.absolute(
                             np.array(schedule) - open_schedule.dict_schedules["power"]
                         ),
-                        self._value_weights["penalty_exponent"],
+                        1,
                     )
                     * self._value_weights["power_penalty"]
                 )
@@ -510,12 +504,12 @@ class COHDA:
                 heat_global_penalty = (
                     -np.power(
                         np.absolute(np.array(schedule) - fixed_values["heat_open"]),
-                        self._value_weights["penalty_exponent"],
+                        1,
                     )
                     * self._value_weights["heat_penalty"]
                 )
             value = sum(
-                energy_weight * np.array(schedule)
+                -np.absolute(np.array(schedule))
                 + power_global_penalty
                 + heat_global_penalty
             )

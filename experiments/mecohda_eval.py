@@ -8,8 +8,8 @@ import numpy as np
 OUTPUT = "data/out/"
 INPUT = "log/"
 
-MAIN_EVAL_ID = "ab7053f0-c20b-11ee-a995-387c767ca728"
-SCENARIOS = ["hh", "industry", "storage"]
+MAIN_EVAL_ID = "4da35bd4-c46b-11ee-b8de-00155dbea30e"
+SCENARIOS = ["storage", "industry", "hh"]
 
 
 def create_convergence_graph(history_df, name, scenario):
@@ -52,6 +52,7 @@ def create_convergence_graph(history_df, name, scenario):
             log_y=True,
             template="plotly_white+publish3",
             line_width=3,
+            legend_y=0.5,
         )
     ]
     titles += [f"Mean convergence and deviation of the agents ({scenario})"]
