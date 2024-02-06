@@ -433,11 +433,12 @@ async def test_case(
                 "iteration": int(cells[0]),
                 "agent": int(cells[1]),
                 "performance": float(cells[2]),
-                "power": float(cells[3]),
-                "heat": float(cells[4]),
-                "gas": float(cells[5]),
-                "p2h": float(cells[6]),
-                "p2g": float(cells[7]),
+                "private_performance": float(cells[3]),
+                "power": float(cells[4]),
+                "heat": float(cells[5]),
+                "gas": float(cells[6]),
+                "p2h": float(cells[7]),
+                "p2g": float(cells[8]),
             }
         )
     pd.DataFrame(df_rows).to_csv(f"{filename}_history.csv")

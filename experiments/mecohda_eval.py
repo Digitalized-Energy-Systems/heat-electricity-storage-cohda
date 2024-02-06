@@ -8,7 +8,7 @@ import numpy as np
 OUTPUT = "data/out/"
 INPUT = "log/"
 
-MAIN_EVAL_ID = "4da35bd4-c46b-11ee-b8de-00155dbea30e"
+MAIN_EVAL_ID = "9a04fe8c-c4da-11ee-85dc-387c767c9eae"
 SCENARIOS = ["storage", "industry", "hh"]
 
 
@@ -162,5 +162,54 @@ def evaluate(eval_id):
         create_stacked_plot(results_df, cs_df, eval_id, scenario)
 
 
+def create_all_results_df():
+    all_folders = [f.path for f in os.scandir(f"{INPUT}") if f.is_dir()]
+
+    all_results_df_rows = []
+    for folder in all_folders:
+        all_files = [f.path for f in os.scandir(folder) if f.is_file()]
+        for scenario in SCENARIOS:
+            history_df = pd.read_csv(
+                list(filter(lambda f: "history.csv" in f and scenario in f, all_files))[
+                    0
+                ]
+            )
+            all_results_df_rows.append(
+                {
+                    "performance": list(history_df["performance"])[-1],
+                    "run_id": folder,
+                    "scenario": scenario,
+                }
+            )
+    return pd.DataFrame(all_results_df_rows)
+
+
+def evaluate_all_violin(all_results_df: pd.DataFrame):
+    fig = eval.create_violin(
+        all_results_df.sort_values(by="scenario", ascending=True),
+        x="scenario",
+        y="performance",
+        color="scenario",
+        xaxis_title="scenario",
+        yaxis_title="performance",
+        points="all",
+        template="plotly_white+publish3",
+        width=1200,
+    )
+    eval.write_all_in_one(
+        [fig],
+        "Figure",
+        Path("."),
+        OUTPUT + f"/all/violin.html",
+        titles=["Scenario to Performance"],
+    )
+
+
+def evaluate_all():
+    all_results_df = create_all_results_df()
+    evaluate_all_violin(all_results_df)
+
+
 if "__main__" == __name__:
+    evaluate_all()
     evaluate(MAIN_EVAL_ID)

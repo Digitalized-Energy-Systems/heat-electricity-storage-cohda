@@ -462,9 +462,7 @@ class COHDA:
             )
             is_power_storage = self._storage[0] == "power"
             flex: FlexibilityCalculation = flex_calc.calculate_total_flex(
-                forecast=np.full(
-                    len(open_schedule.dict_schedules["power"]), 0
-                ),
+                forecast=np.full(len(open_schedule.dict_schedules["power"]), 0),
                 p_max_ps=np.full(
                     len(open_schedule.dict_schedules["power"]),
                     self._storage[1],
@@ -794,6 +792,7 @@ class COHDA:
             " update counter "
             self._counter += 1
 
+        private_perf = current_best_candidate.perf
         current_best_candidate.perf = self._perf_func(
             current_best_candidate.to_energy_schedules(), target_schedule
         )
@@ -805,7 +804,7 @@ class COHDA:
             print_data["all"] = ""
         print_data[
             f"all"
-        ] += f"{number}\t{self._part_id}\t{current_best_candidate.perf:.2f}\t{np.sum(schedule_in_candidate.dict_schedules['power'])}\t{np.sum(schedule_in_candidate.dict_schedules['heat'])}\t{np.sum(schedule_in_candidate.dict_schedules['gas_amount'])}\t{np.sum(schedule_in_candidate.dict_schedules['power_to_heat'])}\t{np.sum(schedule_in_candidate.dict_schedules['power_to_conversion'])}\n"
+        ] += f"{number}\t{self._part_id}\t{current_best_candidate.perf:.2f}\t{private_perf}\t{np.sum(schedule_in_candidate.dict_schedules['power'])}\t{np.sum(schedule_in_candidate.dict_schedules['heat'])}\t{np.sum(schedule_in_candidate.dict_schedules['gas_amount'])}\t{np.sum(schedule_in_candidate.dict_schedules['power_to_heat'])}\t{np.sum(schedule_in_candidate.dict_schedules['power_to_conversion'])}\n"
         if f"{self._part_id}_heat" not in print_data.keys():
             print_data[f"{self._part_id}_heat"] = ""
             print_data[f"{self._part_id}_power"] = ""

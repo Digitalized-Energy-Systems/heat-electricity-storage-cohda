@@ -27,8 +27,8 @@ pio.templates["publish2"] = go.layout.Template(
 )
 pio.templates["publish1"] = go.layout.Template(
     layout=go.Layout(
-        font=dict(family="sans-serif", size=9),
-        titlefont=dict(family="sans-serif", size=9),
+        font=dict(family="sans-serif", size=11),
+        titlefont=dict(family="sans-serif", size=11),
     )
 )
 
@@ -750,4 +750,53 @@ def create_variance_plot(
     )
     if log_y:
         fig.update_yaxes(type="log", dtick=1)
+    return fig
+
+
+def create_violin(
+    df,
+    x,
+    y,
+    color=None,
+    box=True,
+    points=None,
+    meanline=False,
+    fillcolor=None,
+    color_discrete_sequence=None,
+    template="plotly_white+publish",
+    title=None,
+    width=900,
+    height=600,
+    legend_text=None,
+    xaxis_title=None,
+    yaxis_title=None,
+    xaxis_tickangle=0,
+    log_x=False,
+    log_y=False,
+    showlegend=False,
+):
+    fig = px.violin(
+        df,
+        x=x,
+        y=y,
+        box=box,
+        points=points,
+        color=color,
+        title=title,
+        template=template,
+        color_discrete_sequence=color_discrete_sequence,
+        log_x=log_x,
+        log_y=log_y,
+    )
+    fig.update_layout(
+        height=height,
+        width=width,
+        margin={"l": 20, "b": 30, "r": 10, "t": 30},
+        legend={"title": legend_text},
+        xaxis_title=xaxis_title,
+        yaxis_title=yaxis_title,
+        xaxis_tickangle=xaxis_tickangle,
+        showlegend=showlegend,
+    )
+    fig.update_traces(fillcolor=fillcolor, meanline_visible=meanline)
     return fig
