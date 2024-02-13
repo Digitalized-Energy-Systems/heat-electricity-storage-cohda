@@ -8,7 +8,7 @@ import numpy as np
 OUTPUT = "data/out/"
 INPUT = "log/"
 
-MAIN_EVAL_ID = "b3692230-ca67-11ee-812e-00155d09dfc2"
+MAIN_EVAL_ID = "380711de-ca89-11ee-b383-00155d09dfc2"
 SCENARIOS = ["electric", "storage", "industry", "hh"]
 
 
@@ -52,7 +52,7 @@ def create_convergence_graph(history_df, name, scenario):
             log_y=True,
             template="plotly_white+publish3",
             line_width=3,
-            legend_y=0.5,
+            legend_y=0.8,
         )
     ]
     titles += [f"Mean convergence and deviation of the agents ({scenario})"]
@@ -76,11 +76,11 @@ def to_type(agent):
 
 CONVERT_MAP_MAIN_C = {"power": "Unnamed: 1", "heat": "Unnamed: 4"}
 TYPE_TO_COLOR = {
-    "SOLAR": "rgb(255,231,111)",
-    "STORAGE": "rgb(179,222,105)",
+    "solar": "rgb(255,231,111)",
+    "storage": "rgb(179,222,105)",
     "CHP": "rgb(251,128,114)",
-    "WIND": "rgb(128,177,211)",
-    "HEATPUMP": "rgb(251,128,114)",
+    "wind": "rgb(128,177,211)",
+    "HP": "rgb(251,128,114)",
 }
 SECTOR_TO_Y_AXIS = {
     "power": "electric power",
@@ -114,6 +114,9 @@ def create_stacked_plot(results_df: pd.DataFrame, cs_df: pd.DataFrame, name, sce
             .reset_index()
             .sort_values(by="agent_type", ascending=False)
         )
+        this_df["agent_type"] = this_df["agent_type"].apply(
+            lambda v: v.lower().replace("heatpump", "HP").replace("chp", "CHP")
+        )
         titles += [f"Stacked schedules of the agents by type for {sector} ({scenario})"]
         figures += [
             eval.create_area_with_df(
@@ -124,7 +127,6 @@ def create_stacked_plot(results_df: pd.DataFrame, cs_df: pd.DataFrame, name, sce
                 # line_group="agent_type",
                 yaxis_title=SECTOR_TO_Y_AXIS[sector],
                 xaxis_title="step",
-                legend_text="type",
                 legend_x=0,
                 legend_y=1.15,
                 color_discrete_map=TYPE_TO_COLOR,
@@ -281,5 +283,5 @@ def evaluate_all():
 
 
 if "__main__" == __name__:
-    evaluate_all()
     evaluate(MAIN_EVAL_ID)
+    evaluate_all()
