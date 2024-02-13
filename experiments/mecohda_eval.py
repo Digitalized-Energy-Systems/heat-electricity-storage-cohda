@@ -8,8 +8,8 @@ import numpy as np
 OUTPUT = "data/out/"
 INPUT = "log/"
 
-MAIN_EVAL_ID = "9a04fe8c-c4da-11ee-85dc-387c767c9eae"
-SCENARIOS = ["storage", "industry", "hh"]
+MAIN_EVAL_ID = "b3692230-ca67-11ee-812e-00155d09dfc2"
+SCENARIOS = ["electric", "storage", "industry", "hh"]
 
 
 def create_convergence_graph(history_df, name, scenario):
@@ -80,6 +80,7 @@ TYPE_TO_COLOR = {
     "STORAGE": "rgb(179,222,105)",
     "CHP": "rgb(251,128,114)",
     "WIND": "rgb(128,177,211)",
+    "HEATPUMP": "rgb(251,128,114)",
 }
 SECTOR_TO_Y_AXIS = {
     "power": "electric power",
@@ -166,6 +167,7 @@ def create_all_results_df():
     all_folders = [f.path for f in os.scandir(f"{INPUT}") if f.is_dir()]
 
     all_results_df_rows = []
+    agents_results_df_rows = []
     for folder in all_folders:
         all_files = [f.path for f in os.scandir(folder) if f.is_file()]
         for scenario in SCENARIOS:
@@ -181,10 +183,52 @@ def create_all_results_df():
                     "scenario": scenario,
                 }
             )
-    return pd.DataFrame(all_results_df_rows)
+            for agent in pd.unique(history_df["agent"]):
+                agents_results_df_rows.append(
+                    {
+                        "performance": list(
+                            history_df[history_df["agent"] == agent][
+                                "private_performance"
+                            ]
+                        )[-1],
+                        "run_id": folder,
+                        "scenario": scenario,
+                    }
+                )
+
+    return pd.DataFrame(all_results_df_rows), pd.DataFrame(agents_results_df_rows)
 
 
-def evaluate_all_violin(all_results_df: pd.DataFrame):
+def evaluate_all_violin(all_results_df: pd.DataFrame, agent_results_df: pd.DataFrame):
+    first_folder = [f.path for f in os.scandir(f"{INPUT}") if f.is_dir()][0]
+    all_files = [f.path for f in os.scandir(first_folder) if f.is_file()]
+    meta_df_rows = []
+
+    for scenario in SCENARIOS:
+        cs_df = pd.read_csv(
+            list(
+                filter(lambda f: "result_df_cs.csv" in f and scenario in f, all_files)
+            )[0]
+        )
+        for sector in ["power", "heat"]:
+            y_data = (
+                list(cs_df[CONVERT_MAP_MAIN_C[sector]][1:].astype(float))
+                if sector in CONVERT_MAP_MAIN_C and CONVERT_MAP_MAIN_C[sector] in cs_df
+                else None
+            )
+            meta_df_rows.append(
+                {"scenario": scenario, "sector": sector, "target_sum": sum(y_data)}
+            )
+    meta_df = pd.DataFrame(meta_df_rows)
+    all_results_df["performance_percent"] = all_results_df.apply(
+        lambda row: 100
+        * (
+            meta_df[meta_df["scenario"] == row["scenario"]]["target_sum"].sum()
+            - row["performance"]
+        )
+        / (meta_df[meta_df["scenario"] == row["scenario"]]["target_sum"].sum()),
+        axis=1,
+    )
     fig = eval.create_violin(
         all_results_df.sort_values(by="scenario", ascending=True),
         x="scenario",
@@ -196,18 +240,44 @@ def evaluate_all_violin(all_results_df: pd.DataFrame):
         template="plotly_white+publish3",
         width=1200,
     )
+    fig_perc = eval.create_violin(
+        all_results_df.sort_values(by="scenario", ascending=True),
+        x="scenario",
+        y="performance_percent",
+        color="scenario",
+        xaxis_title="scenario",
+        yaxis_title="performance in %",
+        points="all",
+        template="plotly_white+publish3",
+        width=1200,
+    )
+    fig2 = eval.create_violin(
+        agent_results_df.sort_values(by="scenario", ascending=True),
+        x="scenario",
+        y="performance",
+        color="scenario",
+        xaxis_title="scenario",
+        yaxis_title="private performance",
+        points="all",
+        template="plotly_white+publish3",
+        width=1200,
+    )
     eval.write_all_in_one(
-        [fig],
+        [fig, fig_perc, fig2],
         "Figure",
         Path("."),
         OUTPUT + f"/all/violin.html",
-        titles=["Scenario to Performance"],
+        titles=[
+            "Scenario to global performance",
+            "Scenario to global performance in percent",
+            "Scenario to individual agent performances",
+        ],
     )
 
 
 def evaluate_all():
-    all_results_df = create_all_results_df()
-    evaluate_all_violin(all_results_df)
+    all_results_df, agent_results_df = create_all_results_df()
+    evaluate_all_violin(all_results_df, agent_results_df)
 
 
 if "__main__" == __name__:

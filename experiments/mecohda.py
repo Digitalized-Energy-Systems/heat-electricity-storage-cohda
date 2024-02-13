@@ -785,17 +785,17 @@ POWER_TARGET_I = (
 )
 HEAT_TARGET_I = (
     [
-        3000,
-        3000,
-        3000,
-        3000,
-        3000,
-        3000,
-        3000,
-        3000,
-        3000,
-        3000,
-        3000,
+        1000,
+        1000,
+        1000,
+        1000,
+        1200,
+        1800,
+        2000,
+        2500,
+        3500,
+        3500,
+        3500,
         2950,
         2900,
         2850,
@@ -817,6 +817,12 @@ HEAT_TARGET_I = (
         2050,
         2000,
         1950,
+        1700,
+        1700,
+        1700,
+        1700,
+        1700,
+        1800,
         1900,
         1900,
         1900,
@@ -837,50 +843,44 @@ HEAT_TARGET_I = (
         1900,
         1900,
         1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1900,
-        1950,
         2000,
-        2050,
         2100,
-        2150,
         2200,
-        2250,
         2300,
         2350,
-        2400,
-        2450,
-        2500,
-        2550,
-        2600,
-        2650,
-        2700,
-        2750,
-        2800,
-        2850,
-        2900,
-        2950,
-        3000,
+        2300,
+        2200,
+        2200,
+        2200,
+        2000,
+        1800,
+        1800,
+        1800,
+        1800,
+        1800,
+        1800,
+        1850,
+        1800,
+        1850,
+        1700,
+        1550,
+        1500,
+        1550,
+        1500,
+        1550,
+        1700,
+        1850,
+        1500,
+        1550,
+        1500,
+        1550,
+        1400,
+        1350,
+        1300,
+        1350,
+        1300,
+        1250,
+        1100,
     ],
 )
 
@@ -1050,11 +1050,100 @@ def case_storage_improvement(run_id):
     )
 
 
+def case_electric_with_storage(run_id):
+    max_iterations = 2
+    max_iteration_power = 0
+    penalty_exponent = 2
+    power_penalty = 1
+    heat_penalty = 1
+    power_kwh_price = 0.15
+    heat_kwh_price = 0.1
+    converted_price = 0.05
+    maximum_agent_attempts = 5
+    # 'convert_amount', 'gas_price', 'max_gas_amount', 'gas_to_heat_factor', 'gas_to_power_factor', 'power_to_heat_factor', 'power_to_heat_amount'
+    val = [
+        [0, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 900), "SOLAR"],
+        [0, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 960), "SOLAR"],
+        [0, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 760), "SOLAR"],
+        [0, 0, 0, 0, 0, 0, 0, get_wind_schedule(36, 5, 3.7, 0.1, 0.25), "WIND"],
+        [0, 0, 0, 0, 0, 4, 2700, 0, "HEATPUMP"],
+        [0, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 880), "SOLAR"],
+        [0, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 850), "SOLAR"],
+        [0, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 600), "SOLAR"],
+        [0, 0, 0, 0, 0, 4, 2000, 0, "HEATPUMP"],
+        [0, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 1100), "SOLAR"],
+        [0, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
+        [0, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 300), "SOLAR"],
+        [0, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 400), "SOLAR"],
+        [0, 0, 0, 0, 0, 0, 0, get_wind_schedule(36, 5, 3.7, 0.1, 0.21), "WIND"],
+        [0, 0, 0, 0, 0, 0, 0, get_wind_schedule(36, 5, 3.7, 0.1, 0.18), "WIND"],
+        [0, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 600), "SOLAR"],
+        [0, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 900), "SOLAR"],
+        [0, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 700), "SOLAR"],
+        [0, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 900), "SOLAR"],
+        [0, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 910), "SOLAR"],
+        [0, 0, 0, 0, 0, 4, 1300, 0, "HEATPUMP"],
+        [0, 0, 0, 0, 0, 0, 0, get_wind_schedule(36, 5, 3.7, 0.1, 0.19), "WIND"],
+        [0, 0, 0, 0, 0, 0, 0, get_wind_schedule(36, 5, 3.7, 0.1, 0.29), "WIND"],
+    ]
+    # sector, max_p_bat, min_p_bat, capacity, eff_charge, eff_discharge, start_soc, end_min_soc (all in W/Wh)
+    storages = [
+        ["heat", 10000, -10000, 84000, 0.99, 0.99, 0.6, 0],
+        ["power", 10000, -10000, 84000, 0.95, 0.95, 0.6, 0],
+    ]
+
+    power_target = POWER_TARGET_I[0] + np.ones(96) * 500
+    heat_target = HEAT_TARGET_I[0] + np.ones(96) * 1500
+
+    value_weights = []
+    schedules_provider = []
+    for v in val:
+        value_weights.append(
+            {
+                "convert_amount": v[0],
+                "gas_price": v[1],
+                "max_gas_amount": v[2],
+                "gas_to_heat_factor": v[3],
+                "gas_to_power_factor": v[4],
+                "power_to_heat_factor": v[5],
+                "power_to_heat_amount": v[6],
+                "power_penalty": power_penalty,
+                "heat_penalty": heat_penalty,
+                "power_kwh_price": power_kwh_price,
+                "heat_kwh_price": heat_kwh_price,
+                "converted_price": converted_price,
+                "penalty_exponent": penalty_exponent,
+                "max_iterations": max_iterations,
+                "maximum_agent_attempts": maximum_agent_attempts,
+                "max_iteration_power": max_iteration_power,
+                "name": v[-1],
+            }
+        )
+        if v[7] == 0:
+            schedules_provider.append([np.zeros(96).tolist()])
+        else:
+            schedules_provider.append(v[7])
+
+    asyncio.run(
+        test_case(
+            power_target=power_target,
+            heat_target=heat_target,
+            value_weights=value_weights,
+            schedules_provider=schedules_provider,
+            storages=storages,
+            name=run_id + "/electric",
+        )
+    )
+
+
 if __name__ == "__main__":
     run_id = str(uuid.uuid1())
 
     os.makedirs(f"log/{run_id}")
 
+    case_electric_with_storage(run_id)
+    cohda.print_data = {}
+    reset_globals()
     case_storage_improvement(run_id)
     cohda.print_data = {}
     reset_globals()
