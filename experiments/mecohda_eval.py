@@ -8,7 +8,7 @@ import numpy as np
 OUTPUT = "data/out/"
 INPUT = "log/"
 
-MAIN_EVAL_ID = "380711de-ca89-11ee-b383-00155d09dfc2"
+MAIN_EVAL_ID = "b555d978-ca92-11ee-894b-387c767ca728"
 SCENARIOS = ["electric", "storage", "industry", "hh"]
 
 
