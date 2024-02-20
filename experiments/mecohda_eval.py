@@ -8,8 +8,16 @@ import numpy as np
 OUTPUT = "data/out/"
 INPUT = "log/"
 
-MAIN_EVAL_ID = "b555d978-ca92-11ee-894b-387c767ca728"
-SCENARIOS = ["electric", "storage", "industry", "hh"]
+MAIN_EVAL_ID = "6d655ed8-cff4-11ee-ad15-00155d67081b"
+SCENARIOS = ["st_opp", "el_plus_opp", "electric", "storage", "industry"]
+SCENARIO_TO_NAME = {
+    "st_opp": "CHP with storage (multi-purpose)",
+    "el_plus_opp": "HP with storage (multi-purpose)",
+    "electric": "HP with storage",
+    "storage": "CHP with storage",
+    "industry": "CHP",
+    "hh": "hh",
+}
 
 
 def create_convergence_graph(history_df, name, scenario):
@@ -50,7 +58,7 @@ def create_convergence_graph(history_df, name, scenario):
             xaxis_title="cycle",
             yaxis_title="performance",
             log_y=True,
-            template="plotly_white+publish3",
+            template="plotly_white+publish",
             line_width=3,
             legend_y=0.8,
         )
@@ -173,6 +181,7 @@ def create_all_results_df():
     for folder in all_folders:
         all_files = [f.path for f in os.scandir(folder) if f.is_file()]
         for scenario in SCENARIOS:
+            scenario_name = SCENARIO_TO_NAME[scenario]
             history_df = pd.read_csv(
                 list(filter(lambda f: "history.csv" in f and scenario in f, all_files))[
                     0
@@ -182,7 +191,7 @@ def create_all_results_df():
                 {
                     "performance": list(history_df["performance"])[-1],
                     "run_id": folder,
-                    "scenario": scenario,
+                    "scenario": scenario_name,
                 }
             )
             for agent in pd.unique(history_df["agent"]):
@@ -194,7 +203,7 @@ def create_all_results_df():
                             ]
                         )[-1],
                         "run_id": folder,
-                        "scenario": scenario,
+                        "scenario": scenario_name,
                     }
                 )
 
@@ -207,6 +216,8 @@ def evaluate_all_violin(all_results_df: pd.DataFrame, agent_results_df: pd.DataF
     meta_df_rows = []
 
     for scenario in SCENARIOS:
+        scenario_name = SCENARIO_TO_NAME[scenario]
+
         cs_df = pd.read_csv(
             list(
                 filter(lambda f: "result_df_cs.csv" in f and scenario in f, all_files)
@@ -219,7 +230,7 @@ def evaluate_all_violin(all_results_df: pd.DataFrame, agent_results_df: pd.DataF
                 else None
             )
             meta_df_rows.append(
-                {"scenario": scenario, "sector": sector, "target_sum": sum(y_data)}
+                {"scenario": scenario_name, "sector": sector, "target_sum": sum(y_data)}
             )
     meta_df = pd.DataFrame(meta_df_rows)
     all_results_df["performance_percent"] = all_results_df.apply(
@@ -236,33 +247,36 @@ def evaluate_all_violin(all_results_df: pd.DataFrame, agent_results_df: pd.DataF
         x="scenario",
         y="performance",
         color="scenario",
-        xaxis_title="scenario",
-        yaxis_title="performance",
+        xaxis_title="<b>scenario</b>",
+        yaxis_title="<b>performance</b>",
         points="all",
-        template="plotly_white+publish3",
-        width=1200,
+        template="plotly_white+publish",
+        width=600,
+        height=400,
     )
     fig_perc = eval.create_violin(
         all_results_df.sort_values(by="scenario", ascending=True),
         x="scenario",
         y="performance_percent",
         color="scenario",
-        xaxis_title="scenario",
-        yaxis_title="performance in %",
+        xaxis_title="<b>scenario</b>",
+        yaxis_title="<b>performance in %</b>",
         points="all",
-        template="plotly_white+publish3",
-        width=1200,
+        template="plotly_white+publish",
+        width=600,
+        height=400,
     )
     fig2 = eval.create_violin(
         agent_results_df.sort_values(by="scenario", ascending=True),
         x="scenario",
         y="performance",
         color="scenario",
-        xaxis_title="scenario",
-        yaxis_title="private performance",
+        xaxis_title="<b>scenario</b>",
+        yaxis_title="<b>private performance</b>",
         points="all",
-        template="plotly_white+publish3",
-        width=1200,
+        template="plotly_white+publish",
+        width=600,
+        height=400,
     )
     eval.write_all_in_one(
         [fig, fig_perc, fig2],

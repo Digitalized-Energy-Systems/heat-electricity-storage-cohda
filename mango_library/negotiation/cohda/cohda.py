@@ -513,7 +513,13 @@ class COHDA:
                     )
                     * self._value_weights["heat_penalty"]
                 )
-            value = sum(+power_global_penalty + heat_global_penalty)
+            opportunity_part = 0
+            if len(self._storage) == 9:
+                opportunity_part = energy_weight * sum(schedule) - sum(
+                    np.array(schedule) * np.array(self._storage[8])
+                )
+
+            value = opportunity_part + sum(+power_global_penalty + heat_global_penalty)
             new_candidate_schedules[self._part_id] = EnergySchedules(
                 dict_schedules={
                     "power": (
@@ -557,6 +563,12 @@ class COHDA:
                             "power_schedule_timestamp": energy_schedule.dict_schedules[
                                 "power"
                             ][timestamp],
+                            "opportunity": (
+                                self._value_weights["opportunity"][timestamp]
+                                if "opportunity" in self._value_weights
+                                else 0
+                            ),
+                            "max_amount": max_gas_amount,
                         }
                         list_of_outputs = []
                         max_iterations = float("inf")
@@ -868,6 +880,7 @@ class COHDA:
         value = (
             end_power * self._value_weights["power_kwh_price"]
             + end_heat * self._value_weights["heat_kwh_price"]
+            + fixed_values["opportunity"] * (fixed_values["max_amount"] - amount)
             + self._calc_global_penalty(fixed_values, end_power, end_heat)
             - amount * self._value_weights["gas_price"]
         )

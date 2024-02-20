@@ -1050,6 +1050,160 @@ def case_storage_improvement(run_id):
     )
 
 
+def case_storage_improvement_opp(run_id):
+    max_iterations = 2
+    max_iteration_power = 0
+    penalty_exponent = 2
+    power_penalty = 1
+    heat_penalty = 1
+    power_kwh_price = 0.13
+    heat_kwh_price = 0.1
+    converted_price = 0.05
+    maximum_agent_attempts = 5
+    opportunity_list = read_smard("experiments/15_03_2023_gh_15min.csv")
+    # 'convert_amount', 'gas_price', 'max_gas_amount', 'gas_to_heat_factor', 'gas_to_power_factor', 'power_to_heat_factor', 'power_to_heat_amount'
+    val = [
+        [
+            1500,
+            999 * 0.11 / 430,
+            1250,
+            951 / 430,
+            999 / 430,
+            0,
+            0,
+            0,
+            "CHP",
+            opportunity_list,
+        ],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
+        [
+            1500,
+            999 * 0.11 / 430,
+            1250,
+            951 / 430,
+            999 / 430,
+            0,
+            0,
+            0,
+            "CHP",
+            opportunity_list,
+        ],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 400), "SOLAR"],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 400), "SOLAR"],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 400), "SOLAR"],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 400), "SOLAR"],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 400), "SOLAR"],
+        [
+            1500,
+            999 * 0.11 / 430,
+            1250,
+            951 / 430,
+            999 / 430,
+            0,
+            0,
+            0,
+            "CHP",
+            opportunity_list,
+        ],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
+        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
+        [
+            1500,
+            999 * 0.11 / 430,
+            1250,
+            951 / 430,
+            999 / 430,
+            0,
+            0,
+            0,
+            "CHP",
+            opportunity_list,
+        ],
+        [
+            800,
+            999 * 0.11 / 430,
+            705,
+            951 / 430,
+            999 / 430,
+            0,
+            0,
+            0,
+            "CHP",
+            opportunity_list,
+        ],
+        [
+            900,
+            999 * 0.11 / 430,
+            710,
+            951 / 430,
+            999 / 430,
+            0,
+            0,
+            0,
+            "CHP",
+            opportunity_list,
+        ],
+    ]
+    # sector, max_p_bat, min_p_bat, capacity, eff_charge, eff_discharge, start_soc, end_min_soc (all in W/Wh)
+    storages = [
+        ["heat", 1500, -1500, 12000, 0.99, 0.99, 0.5, 0, opportunity_list],
+        ["power", 1500, -1500, 12000, 0.95, 0.95, 0.5, 0, opportunity_list],
+        ["heat", 1500, -1500, 16000, 0.99, 0.99, 0.5, 0, opportunity_list],
+        ["power", 1500, -1500, 16000, 0.95, 0.95, 0.5, 0, opportunity_list],
+    ]
+
+    power_target = POWER_TARGET_I[0] + np.ones(96) * 500
+    heat_target = HEAT_TARGET_I[0] + np.ones(96) * 500
+
+    value_weights = []
+    schedules_provider = []
+    for v in val:
+        value_weights.append(
+            {
+                "convert_amount": v[0],
+                "gas_price": v[1],
+                "max_gas_amount": v[2],
+                "gas_to_heat_factor": v[3],
+                "gas_to_power_factor": v[4],
+                "power_to_heat_factor": v[5],
+                "power_to_heat_amount": v[6],
+                "power_penalty": power_penalty,
+                "heat_penalty": heat_penalty,
+                "power_kwh_price": power_kwh_price,
+                "heat_kwh_price": heat_kwh_price,
+                "converted_price": converted_price,
+                "penalty_exponent": penalty_exponent,
+                "max_iterations": max_iterations,
+                "maximum_agent_attempts": maximum_agent_attempts,
+                "max_iteration_power": max_iteration_power,
+                "name": v[8],
+                "opportunity": v[9] if len(v) >= 10 else np.zeros(96),
+            }
+        )
+        if v[7] == 0:
+            schedules_provider.append([np.zeros(96).tolist()])
+        else:
+            schedules_provider.append(v[7])
+
+    asyncio.run(
+        test_case(
+            power_target=power_target,
+            heat_target=heat_target,
+            value_weights=value_weights,
+            schedules_provider=schedules_provider,
+            storages=storages,
+            name=run_id + "/st_opp",
+        )
+    )
+
+
 def case_electric_with_storage(run_id):
     max_iterations = 2
     max_iteration_power = 0
@@ -1136,11 +1290,315 @@ def case_electric_with_storage(run_id):
     )
 
 
+def read_smard(file_name):
+    df = pd.read_csv(file_name, delimiter=";")
+    return list(
+        df["Deutschland/Luxemburg [€/MWh] Berechnete Auflösungen"]
+        .apply(lambda v: v.replace(",", "."))
+        .astype(float)
+        * 0.001
+    )[:96]
+
+
+def case_electric_with_storage_multi_purpose(run_id):
+    max_iterations = 2
+    max_iteration_power = 0
+    penalty_exponent = 2
+    power_penalty = 1
+    heat_penalty = 1
+    power_kwh_price = 0.14
+    heat_kwh_price = 0.1
+    converted_price = 0.05
+    maximum_agent_attempts = 5
+    opportunity_list = read_smard("experiments/15_03_2023_gh_15min.csv")
+    # 'convert_amount', 'gas_price', 'max_gas_amount', 'gas_to_heat_factor', 'gas_to_power_factor', 'power_to_heat_factor', 'power_to_heat_amount'
+    val = [
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_solar_schedule(5, 0.3, 900),
+            "SOLAR",
+        ],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_solar_schedule(5, 0.3, 960),
+            "SOLAR",
+        ],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_solar_schedule(5, 0.3, 760),
+            "SOLAR",
+        ],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_wind_schedule(36, 5, 3.7, 0.1, 0.25),
+            "WIND",
+        ],
+        [0, 0, 0, 0, 0, 4, 2700, 0, "HEATPUMP", opportunity_list],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_solar_schedule(5, 0.3, 880),
+            "SOLAR",
+        ],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_solar_schedule(5, 0.3, 850),
+            "SOLAR",
+        ],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_solar_schedule(5, 0.3, 600),
+            "SOLAR",
+        ],
+        [0, 0, 0, 0, 0, 4, 2000, 0, "HEATPUMP", opportunity_list],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_solar_schedule(5, 0.3, 1100),
+            "SOLAR",
+        ],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_solar_schedule(5, 0.3, 200),
+            "SOLAR",
+        ],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_solar_schedule(5, 0.3, 300),
+            "SOLAR",
+        ],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_solar_schedule(5, 0.3, 400),
+            "SOLAR",
+        ],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_wind_schedule(36, 5, 3.7, 0.1, 0.21),
+            "WIND",
+        ],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_wind_schedule(36, 5, 3.7, 0.1, 0.18),
+            "WIND",
+        ],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_solar_schedule(5, 0.3, 600),
+            "SOLAR",
+        ],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_solar_schedule(5, 0.3, 900),
+            "SOLAR",
+        ],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_solar_schedule(5, 0.3, 700),
+            "SOLAR",
+        ],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_solar_schedule(5, 0.3, 900),
+            "SOLAR",
+        ],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_solar_schedule(5, 0.3, 910),
+            "SOLAR",
+        ],
+        [0, 0, 0, 0, 0, 4, 1300, 0, "HEATPUMP", opportunity_list],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_wind_schedule(36, 5, 3.7, 0.1, 0.19),
+            "WIND",
+        ],
+        [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            get_wind_schedule(36, 5, 3.7, 0.1, 0.29),
+            "WIND",
+        ],
+    ]
+    # sector, max_p_bat, min_p_bat, capacity, eff_charge, eff_discharge, start_soc, end_min_soc (all in W/Wh)
+    storages = [
+        ["heat", 10000, -10000, 84000, 0.99, 0.99, 0.6, 0, opportunity_list],
+        ["power", 10000, -10000, 84000, 0.95, 0.95, 0.6, 0, opportunity_list],
+    ]
+
+    power_target = POWER_TARGET_I[0] + np.ones(96) * 500
+    heat_target = HEAT_TARGET_I[0] + np.ones(96) * 1500
+
+    value_weights = []
+    schedules_provider = []
+    for v in val:
+        value_weights.append(
+            {
+                "convert_amount": v[0],
+                "gas_price": v[1],
+                "max_gas_amount": v[2],
+                "gas_to_heat_factor": v[3],
+                "gas_to_power_factor": v[4],
+                "power_to_heat_factor": v[5],
+                "power_to_heat_amount": v[6],
+                "power_penalty": power_penalty,
+                "heat_penalty": heat_penalty,
+                "power_kwh_price": power_kwh_price,
+                "heat_kwh_price": heat_kwh_price,
+                "converted_price": converted_price,
+                "penalty_exponent": penalty_exponent,
+                "max_iterations": max_iterations,
+                "maximum_agent_attempts": maximum_agent_attempts,
+                "max_iteration_power": max_iteration_power,
+                "name": v[8],
+                "opportunity": v[9] if len(v) >= 10 else np.zeros(96),
+            }
+        )
+        if v[7] == 0:
+            schedules_provider.append([np.zeros(96).tolist()])
+        else:
+            schedules_provider.append(v[7])
+
+    asyncio.run(
+        test_case(
+            power_target=power_target,
+            heat_target=heat_target,
+            value_weights=value_weights,
+            schedules_provider=schedules_provider,
+            storages=storages,
+            name=run_id + "/el_plus_opp",
+        )
+    )
+
+
 if __name__ == "__main__":
     run_id = str(uuid.uuid1())
 
     os.makedirs(f"log/{run_id}")
 
+    case_storage_improvement_opp(run_id)
+    cohda.print_data = {}
+    reset_globals()
+    case_electric_with_storage_multi_purpose(run_id)
+    cohda.print_data = {}
+    reset_globals()
     case_electric_with_storage(run_id)
     cohda.print_data = {}
     reset_globals()
