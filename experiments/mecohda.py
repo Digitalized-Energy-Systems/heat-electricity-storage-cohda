@@ -15,6 +15,7 @@ from mango_library.negotiation.cohda.data_classes import EnergySchedules
 import numpy as np
 
 DEFAULT_PENALTY_EXP = 1
+DEFAULT_PENALTY = 2
 
 addr = ("127.0.0.2", random.randint(5557, 9999))
 
@@ -599,8 +600,8 @@ def case_hh(run_id):
     max_iterations = 2
     max_iteration_power = 0
     penalty_exponent = DEFAULT_PENALTY_EXP
-    power_penalty = 1
-    heat_penalty = 1
+    power_penalty = DEFAULT_PENALTY
+    heat_penalty = DEFAULT_PENALTY
     power_kwh_price = 0.15
     heat_kwh_price = 0.1
     converted_price = 0.05
@@ -891,8 +892,8 @@ def case_industry(run_id):
     max_iterations = 2
     max_iteration_power = 0
     penalty_exponent = DEFAULT_PENALTY_EXP
-    power_penalty = 1
-    heat_penalty = 1
+    power_penalty = DEFAULT_PENALTY
+    heat_penalty = DEFAULT_PENALTY
     power_kwh_price = 0.15
     heat_kwh_price = 0.1
     converted_price = 0.05
@@ -970,8 +971,8 @@ def case_storage_improvement(run_id):
     max_iterations = 2
     max_iteration_power = 0
     penalty_exponent = DEFAULT_PENALTY_EXP
-    power_penalty = 1
-    heat_penalty = 1
+    power_penalty = DEFAULT_PENALTY
+    heat_penalty = DEFAULT_PENALTY
     power_kwh_price = 0.15
     heat_kwh_price = 0.1
     converted_price = 0.05
@@ -1056,8 +1057,8 @@ def case_storage_improvement_opp(run_id):
     max_iterations = 2
     max_iteration_power = 0
     penalty_exponent = DEFAULT_PENALTY_EXP
-    power_penalty = 1
-    heat_penalty = 1
+    power_penalty = DEFAULT_PENALTY
+    heat_penalty = DEFAULT_PENALTY
     power_kwh_price = 0.13
     heat_kwh_price = 0.1
     converted_price = 0.05
@@ -1210,8 +1211,8 @@ def case_electric_with_storage(run_id):
     max_iterations = 2
     max_iteration_power = 0
     penalty_exponent = DEFAULT_PENALTY_EXP
-    power_penalty = 1
-    heat_penalty = 1
+    power_penalty = DEFAULT_PENALTY
+    heat_penalty = DEFAULT_PENALTY
     power_kwh_price = 0.15
     heat_kwh_price = 0.1
     converted_price = 0.05
@@ -1306,8 +1307,8 @@ def case_electric_with_storage_multi_purpose(run_id):
     max_iterations = 2
     max_iteration_power = 0
     penalty_exponent = DEFAULT_PENALTY_EXP
-    power_penalty = 1
-    heat_penalty = 1
+    power_penalty = DEFAULT_PENALTY
+    heat_penalty = DEFAULT_PENALTY
     power_kwh_price = 0.14
     heat_kwh_price = 0.1
     converted_price = 0.05

@@ -8,7 +8,7 @@ import numpy as np
 OUTPUT = "data/out/"
 INPUT = "log/"
 
-MAIN_EVAL_ID = "92c3eeea-cffb-11ee-9839-387c767ca5c3"
+MAIN_EVAL_ID = "6c10d2fc-d0c0-11ee-ba38-387c767c9f80"
 SCENARIOS = ["st_opp", "el_plus_opp", "electric", "storage", "industry"]
 SCENARIO_TO_NAME = {
     "st_opp": "CHP with storage (multi-purpose)",

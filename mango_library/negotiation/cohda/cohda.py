@@ -537,8 +537,7 @@ class COHDA:
             new_candidate = SolutionCandidate(
                 agent_id=self._part_id, schedules=new_candidate_schedules
             )
-            if new_candidate.perf > current_best_candidate.perf:
-                current_best_candidate = new_candidate
+            current_best_candidate = new_candidate
 
         else:
             "calculate the best gas_amount for each timestamp"
@@ -795,8 +794,7 @@ class COHDA:
                     new_candidate = SolutionCandidate(
                         agent_id=self._part_id, schedules=new_candidate_schedules
                     )
-                    if new_candidate.perf > current_best_candidate.perf:
-                        current_best_candidate = new_candidate
+                    current_best_candidate = new_candidate
 
         schedule_in_candidate = current_best_candidate.schedules.get(
             self._part_id, None
