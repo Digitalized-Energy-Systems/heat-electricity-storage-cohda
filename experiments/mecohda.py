@@ -248,6 +248,8 @@ async def test_case(
         f.write(f"{i}: {value_weights[i]} schedules: {str(schedules_provider[i])}\n")
     f.close()
 
+    start_time = time.time()
+
     " create agents "
     agents = []
     addrs = []
@@ -321,6 +323,10 @@ async def test_case(
     for a in agents:
         await a.shutdown()
     await c.shutdown()
+
+    time_elapsed = time.time() - start_time
+
+    pd.DataFrame([{"scenario": name, "time": time_elapsed}]).to_csv(f"{filename}_time_df.csv")
 
     print()
     print()
