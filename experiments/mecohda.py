@@ -14,7 +14,8 @@ from mango_library.negotiation.cohda.data_classes import EnergySchedules
 
 import numpy as np
 
-DEFAULT_PENALTY_EXP = 1
+DEFAULT_PENALTY_EXP = 2
+LOW_PENALTY_EXP = 1
 DEFAULT_PENALTY = 2
 
 addr = ("127.0.0.2", random.randint(5557, 9999))
@@ -326,7 +327,9 @@ async def test_case(
 
     time_elapsed = time.time() - start_time
 
-    pd.DataFrame([{"scenario": name, "time": time_elapsed}]).to_csv(f"{filename}_time_df.csv")
+    pd.DataFrame([{"scenario": name, "time": time_elapsed}]).to_csv(
+        f"{filename}_time_df.csv"
+    )
 
     print()
     print()
@@ -600,96 +603,6 @@ def get_schedule(day, count, power, cut):
     for _ in range(count):
         schedule.append(list(day * power * (1 - np.random.random(96) * cut)))
     return schedule
-
-
-def case_hh(run_id):
-    max_iterations = 2
-    max_iteration_power = 0
-    penalty_exponent = DEFAULT_PENALTY_EXP
-    power_penalty = DEFAULT_PENALTY
-    heat_penalty = DEFAULT_PENALTY
-    power_kwh_price = 0.15
-    heat_kwh_price = 0.1
-    converted_price = 0.05
-    maximum_agent_attempts = 5
-    # 'convert_amount', 'gas_price', 'max_gas_amount', 'gas_to_heat_factor', 'gas_to_power_factor', 'power_to_heat_factor', 'power_to_heat_amount'
-    val = [
-        [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0, "CHP"],
-        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
-        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
-        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 100), "SOLAR"],
-        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 100), "SOLAR"],
-        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
-        [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0, "CHP"],
-        [12, 0, 0, 0, 0, 0, 0, get_wind_schedule(36, 5, 3.7, 0.1, 0.03), "WIND"],
-        [12, 0, 0, 0, 0, 0, 0, get_wind_schedule(36, 5, 3.7, 0.1, 0.03), "WIND"],
-        [12, 0, 0, 0, 0, 0, 0, get_wind_schedule(36, 5, 3.7, 0.1, 0.03), "WIND"],
-        [12, 0, 0, 0, 0, 0, 0, get_wind_schedule(36, 5, 3.7, 0.1, 0.03), "WIND"],
-        [12, 0, 0, 0, 0, 0, 0, get_wind_schedule(36, 5, 3.7, 0.1, 0.03), "WIND"],
-        [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0, "CHP"],
-        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
-        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
-        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 100), "SOLAR"],
-        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 100), "SOLAR"],
-        [12, 0, 0, 0, 0, 0, 0, get_solar_schedule(5, 0.3, 200), "SOLAR"],
-        [150, 999 * 0.11 / 430, 125, 951 / 430, 999 / 430, 0, 0, 0, "CHP"],
-        [12, 0, 0, 0, 0, 0, 0, get_wind_schedule(36, 5, 3.7, 0.1, 0.03), "WIND"],
-        [12, 0, 0, 0, 0, 0, 0, get_wind_schedule(36, 5, 3.7, 0.1, 0.03), "WIND"],
-        [12, 0, 0, 0, 0, 0, 0, get_wind_schedule(36, 5, 3.7, 0.1, 0.03), "WIND"],
-        [12, 0, 0, 0, 0, 0, 0, get_wind_schedule(36, 5, 3.7, 0.1, 0.03), "WIND"],
-        [12, 0, 0, 0, 0, 0, 0, get_wind_schedule(36, 5, 3.7, 0.1, 0.03), "WIND"],
-    ]
-
-    power_target = POWER_TARGET[0] + np.ones(96) * 500
-    heat_target = HEAT_TARGET[0]
-    # power_target = np.ones(96)
-    # heat_target = np.ones(96)
-    power_target = power_target / np.sum(power_target)
-    print(f"power_target: {power_target}")
-    power_target = (power_target * 96e3 * 1).astype(int)
-    heat_target = heat_target / np.sum(heat_target)
-    print(f"heat_target: {heat_target}")
-    heat_target = (heat_target * 96e3 * 1).astype(int)
-
-    value_weights = []
-    schedules_provider = []
-    for v in val:
-        value_weights.append(
-            {
-                "convert_amount": v[0],
-                "gas_price": v[1],
-                "max_gas_amount": v[2],
-                "gas_to_heat_factor": v[3],
-                "gas_to_power_factor": v[4],
-                "power_to_heat_factor": v[5],
-                "power_to_heat_amount": v[6],
-                "power_penalty": power_penalty,
-                "heat_penalty": heat_penalty,
-                "power_kwh_price": power_kwh_price,
-                "heat_kwh_price": heat_kwh_price,
-                "converted_price": converted_price,
-                "penalty_exponent": penalty_exponent,
-                "max_iterations": max_iterations,
-                "maximum_agent_attempts": maximum_agent_attempts,
-                "max_iteration_power": max_iteration_power,
-                "name": v[-1],
-            }
-        )
-        if v[7] == 0:
-            schedules_provider.append([np.zeros(96).tolist()])
-        else:
-            schedules_provider.append(v[7])
-
-    asyncio.run(
-        test_case(
-            power_target=power_target,
-            heat_target=heat_target,
-            value_weights=value_weights,
-            schedules_provider=schedules_provider,
-            storages=[],
-            name=run_id + "/hh",
-        )
-    )
 
 
 POWER_TARGET_I = (
@@ -973,10 +886,10 @@ def case_industry(run_id):
     )
 
 
-def case_storage_improvement(run_id):
+def case_storage_improvement(run_id, penalty_exp=DEFAULT_PENALTY_EXP, additional_name=""):
     max_iterations = 2
     max_iteration_power = 0
-    penalty_exponent = DEFAULT_PENALTY_EXP
+    penalty_exponent = penalty_exp
     power_penalty = DEFAULT_PENALTY
     heat_penalty = DEFAULT_PENALTY
     power_kwh_price = 0.15
@@ -1054,7 +967,7 @@ def case_storage_improvement(run_id):
             value_weights=value_weights,
             schedules_provider=schedules_provider,
             storages=storages,
-            name=run_id + "/storage",
+            name=run_id + f"/storage{additional_name}",
         )
     )
 
@@ -1062,7 +975,7 @@ def case_storage_improvement(run_id):
 def case_storage_improvement_opp(run_id):
     max_iterations = 2
     max_iteration_power = 0
-    penalty_exponent = DEFAULT_PENALTY_EXP
+    penalty_exponent = LOW_PENALTY_EXP
     power_penalty = DEFAULT_PENALTY
     heat_penalty = DEFAULT_PENALTY
     power_kwh_price = 0.13
@@ -1213,10 +1126,12 @@ def case_storage_improvement_opp(run_id):
     )
 
 
-def case_electric_with_storage(run_id):
+def case_electric_with_storage(
+    run_id, penalty_exp=DEFAULT_PENALTY_EXP, additional_name=""
+):
     max_iterations = 2
     max_iteration_power = 0
-    penalty_exponent = DEFAULT_PENALTY_EXP
+    penalty_exponent = penalty_exp
     power_penalty = DEFAULT_PENALTY
     heat_penalty = DEFAULT_PENALTY
     power_kwh_price = 0.15
@@ -1294,7 +1209,7 @@ def case_electric_with_storage(run_id):
             value_weights=value_weights,
             schedules_provider=schedules_provider,
             storages=storages,
-            name=run_id + "/electric",
+            name=run_id + f"/electric{additional_name}",
         )
     )
 
@@ -1312,7 +1227,7 @@ def read_smard(file_name):
 def case_electric_with_storage_multi_purpose(run_id):
     max_iterations = 2
     max_iteration_power = 0
-    penalty_exponent = DEFAULT_PENALTY_EXP
+    penalty_exponent = LOW_PENALTY_EXP
     power_penalty = DEFAULT_PENALTY
     heat_penalty = DEFAULT_PENALTY
     power_kwh_price = 0.14
@@ -1602,19 +1517,34 @@ if __name__ == "__main__":
 
     os.makedirs(f"log/{run_id}")
 
+    case_storage_improvement(run_id, LOW_PENALTY_EXP, "_low_penalty")
+
+    cohda.print_data = {}
+    reset_globals()
+
+    case_electric_with_storage(run_id, LOW_PENALTY_EXP, "_low_penalty")
+
+    cohda.print_data = {}
+    reset_globals()
+
     case_storage_improvement_opp(run_id)
+
     cohda.print_data = {}
     reset_globals()
+
     case_electric_with_storage_multi_purpose(run_id)
+
     cohda.print_data = {}
     reset_globals()
+
     case_electric_with_storage(run_id)
+
     cohda.print_data = {}
     reset_globals()
+
     case_storage_improvement(run_id)
+
     cohda.print_data = {}
     reset_globals()
+
     case_industry(run_id)
-    cohda.print_data = {}
-    reset_globals()
-    case_hh(run_id)

@@ -8,13 +8,15 @@ import numpy as np
 OUTPUT = "data/out/"
 INPUT = "log/"
 
-MAIN_EVAL_ID = "6c10d2fc-d0c0-11ee-ba38-387c767c9f80"
+MAIN_EVAL_ID = "f9eb6184-d19a-11ee-b25c-387c767ca186"
 SCENARIOS = ["st_opp", "el_plus_opp", "electric", "storage", "industry"]
 SCENARIO_TO_NAME = {
-    "st_opp": "CHP with storage (multi-purpose)",
-    "el_plus_opp": "HP with storage (multi-purpose)",
-    "electric": "HP with storage",
-    "storage": "CHP with storage",
+    "electric_low_penalty": "CHP + ES (low penalty)",
+    "storage_low_penalty": "HP + ES (low penalty)",
+    "st_opp": "CHP + ES + market",
+    "el_plus_opp": "HP + ES + market",
+    "electric": "HP + ES",
+    "storage": "CHP + ES",
     "industry": "CHP",
     "hh": "hh",
 }
@@ -176,6 +178,7 @@ def evaluate(eval_id):
 def create_all_results_df():
     all_folders = [f.path for f in os.scandir(f"{INPUT}") if f.is_dir()]
 
+    time_dfs = []
     all_results_df_rows = []
     agents_results_df_rows = []
     for folder in all_folders:
@@ -206,8 +209,21 @@ def create_all_results_df():
                         "scenario": scenario_name,
                     }
                 )
+            time_dfs.append(
+                pd.read_csv(
+                    list(
+                        filter(
+                            lambda f: "time_df.csv" in f and scenario in f, all_files
+                        )
+                    )[0]
+                )
+            )
 
-    return pd.DataFrame(all_results_df_rows), pd.DataFrame(agents_results_df_rows)
+    return (
+        pd.DataFrame(all_results_df_rows),
+        pd.DataFrame(agents_results_df_rows),
+        pd.concat(time_dfs),
+    )
 
 
 def evaluate_all_violin(all_results_df: pd.DataFrame, agent_results_df: pd.DataFrame):
@@ -251,6 +267,7 @@ def evaluate_all_violin(all_results_df: pd.DataFrame, agent_results_df: pd.DataF
         yaxis_title="<b>performance</b>",
         points="all",
         template="plotly_white+publish",
+        xaxis_tickangle=45,
         width=600,
         height=400,
     )
@@ -263,6 +280,7 @@ def evaluate_all_violin(all_results_df: pd.DataFrame, agent_results_df: pd.DataF
         yaxis_title="<b>performance in %</b>",
         points="all",
         template="plotly_white+publish",
+        xaxis_tickangle=45,
         width=600,
         height=400,
     )
@@ -275,6 +293,7 @@ def evaluate_all_violin(all_results_df: pd.DataFrame, agent_results_df: pd.DataF
         yaxis_title="<b>private performance</b>",
         points="all",
         template="plotly_white+publish",
+        xaxis_tickangle=45,
         width=600,
         height=400,
     )
@@ -291,9 +310,39 @@ def evaluate_all_violin(all_results_df: pd.DataFrame, agent_results_df: pd.DataF
     )
 
 
+def evaluate_all_time(time_df: pd.DataFrame):
+    time_df["scenario"] = time_df["scenario"].apply(
+        lambda v: SCENARIO_TO_NAME[v.split("/")[-1]]
+    )
+
+    fig = eval.create_violin(
+        time_df.sort_values(by="scenario", ascending=True),
+        x="scenario",
+        y="time",
+        color="scenario",
+        xaxis_title="<b>scenario</b>",
+        yaxis_title="<b>time in s</b>",
+        points="all",
+        template="plotly_white+publish",
+        xaxis_tickangle=45,
+        width=600,
+        height=400,
+    )
+    eval.write_all_in_one(
+        [fig],
+        "Figure",
+        Path("."),
+        OUTPUT + f"/all/time.html",
+        titles=[
+            "Scenario to time",
+        ],
+    )
+
+
 def evaluate_all():
-    all_results_df, agent_results_df = create_all_results_df()
+    all_results_df, agent_results_df, time_df = create_all_results_df()
     evaluate_all_violin(all_results_df, agent_results_df)
+    evaluate_all_time(time_df)
 
 
 if "__main__" == __name__:
