@@ -227,9 +227,36 @@ HEAT_TARGET = (
     ],
 )
 
+def sample_schedule(provider, value_weight_dict):
+    if value_weight_dict["name"] == "SOLAR":
+        return EnergySchedules(
+                dict_schedules={
+                    "power": provider[0],
+                    "heat": np.zeros(96).tolist(),
+                }
+            )
+    elif value_weight_dict["name"] == "CHP":
+        schedule_power = []
+        schedule_heat = []
+        for _ in range(96):
+            calcs = calculate_amount(value_weight_dict, 
+                                             random.random()*value_weight_dict["max_gas_amount"], 
+                                             dict(max_amount=1,opportunity=1,power_schedule_timestamp=1,heat_open=0,power_open=0))
+            schedule_power.append(calcs["end_power"])
+            schedule_heat.append(calcs["end_heat"])
+        return EnergySchedules(dict_schedules={
+            "power" : schedule_power,
+            "heat": schedule_heat
+        })
+
+def sample_schedules(provider, value_weight_dict):
+    schedules = []
+    for i in range(1000):
+        schedules.append(sample_schedule(provider, value_weight_dict))
+    return schedules
 
 async def test_case(
-    power_target, heat_target, value_weights, schedules_provider, storages, name
+    power_target, heat_target, value_weights, schedules_provider, storages, name, use_classic=False
 ):
     c = await Container.factory(addr=addr)
 
@@ -256,7 +283,9 @@ async def test_case(
     addrs = []
     for i, _ in enumerate(schedules_provider):
         a = RoleAgent(c)
-        cohda_role = COHDARole(schedules_provider[i], value_weights[i])
+        cohda_role = COHDARole(schedules_provider[i], value_weights[i], 
+                               is_classic=use_classic, 
+                               energy_schedules=sample_schedules(schedules_provider[i], value_weights[i]) if use_classic else None)
         a.add_role(cohda_role)
         if i == 0:
             a.add_role(
@@ -807,7 +836,7 @@ HEAT_TARGET_I = (
 )
 
 
-def case_industry(run_id):
+def case_industry(run_id, postfix, use_classic=False):
     max_iterations = 2
     max_iteration_power = 0
     penalty_exponent = DEFAULT_PENALTY_EXP
@@ -881,7 +910,8 @@ def case_industry(run_id):
             value_weights=value_weights,
             schedules_provider=schedules_provider,
             storages=[],
-            name=run_id + "/industry",
+            name=run_id + "/industry" + postfix,
+            use_classic=use_classic
         )
     )
 
@@ -1516,7 +1546,7 @@ if __name__ == "__main__":
     run_id = str(uuid.uuid1())
 
     os.makedirs(f"log/{run_id}")
-
+    """
     case_storage_improvement(run_id, LOW_PENALTY_EXP, "_low_penalty")
 
     cohda.print_data = {}
@@ -1548,3 +1578,8 @@ if __name__ == "__main__":
     reset_globals()
 
     case_industry(run_id)
+    """
+    cohda.print_data = {}
+    reset_globals()
+
+    case_industry(run_id, "_sampling", use_classic=True)

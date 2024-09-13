@@ -205,6 +205,56 @@ class CohdaNegotiationStarterRole(NegotiationStarterRole):
             coalition_uuid=coalition_uuid,
         )
 
+def _calc_global_penalty(value_weights, fixed_values, end_power, end_heat):
+    return (
+        -np.power(
+            np.absolute(end_power - fixed_values["power_open"]),
+            value_weights["penalty_exponent"],
+        )
+        * value_weights["power_penalty"]
+        - np.power(
+            np.absolute(end_heat - fixed_values["heat_open"]),
+            value_weights["penalty_exponent"],
+        )
+        * value_weights["heat_penalty"]
+    )
+
+def calculate_amount(value_weights, amount, fixed_values):
+    gas_to_power = amount * value_weights["gas_to_power_factor"]
+    gas_to_heat = amount * value_weights["gas_to_heat_factor"]
+    power_to_heat = 0
+    power_power_to_heat = 0
+    if value_weights["power_to_heat_amount"] > 0:
+        power_to_heat = max(
+            amount * value_weights["power_to_heat_factor"],
+            0,
+        )
+        power_power_to_heat = (
+            power_to_heat / value_weights["power_to_heat_factor"]
+        )
+    end_power = (
+        fixed_values["power_schedule_timestamp"]
+        + gas_to_power
+        - power_power_to_heat
+    )
+    end_heat = gas_to_heat + power_to_heat
+    value = (
+        end_power * value_weights["power_kwh_price"]
+        + end_heat * value_weights["heat_kwh_price"]
+        + fixed_values["opportunity"] * (fixed_values["max_amount"] - amount)
+        + _calc_global_penalty(value_weights, fixed_values, end_power, end_heat)
+        - amount * value_weights["gas_price"]
+    )
+
+    return {
+        "gas_amount": amount,
+        "value": value,
+        "end_power": end_power,
+        "end_heat": end_heat,
+        "power_to_heat": power_to_heat,
+        "power_to_conversion": 0,
+    }
+
 
 class COHDA:
     """COHDA-decider"""
@@ -218,6 +268,8 @@ class COHDA:
         storage=None,
         perf_func=None,
         is_storage=False,
+        is_classic=False,
+        energy_schedules=None
     ):
         self._schedule_provider = [
             EnergySchedules(
@@ -228,6 +280,8 @@ class COHDA:
             )
             for schedule in schedule_provider
         ]
+        self._classic = is_classic
+        self._energy_schedules = energy_schedules
         self._is_storage = is_storage
         self._storage = storage
         self._is_local_acceptable = is_local_acceptable
@@ -451,7 +505,35 @@ class COHDA:
         current_best_candidate = candidate
         current_best_candidate.perf = float("-inf")
 
-        if self._is_storage:
+        if self._classic:
+            for schedule in self._energy_schedules:
+                if self._is_local_acceptable(schedule):
+                    new_candidate_schedules = copy(current_best_candidate.schedules)
+                    len_schedule = len(schedule.dict_schedules["power"])
+                    new_candidate_schedules[self._part_id] = EnergySchedules(
+                            dict_schedules={
+                                "power": schedule.dict_schedules["power"],
+                                "heat": schedule.dict_schedules["heat"],
+                                "gas_amount": np.full(len_schedule, 0),
+                                "power_to_heat": np.full(len_schedule, 0),
+                                "power_to_conversion": np.full(len_schedule, 0),
+                            },
+                            perf=0,
+                        )
+                    # create new candidate from sysconfig
+                    new_candidate = SolutionCandidate(
+                            agent_id=self._part_id, schedules=new_candidate_schedules
+                    )
+                    new_performance = self._perf_func(
+                        new_candidate.to_energy_schedules(), target_schedule
+                    )
+                    # only keep new candidates that perform better than the current one
+                    if new_performance > current_best_candidate.perf:
+
+                        new_candidate.perf = new_performance
+                        current_best_candidate = new_candidate
+
+        elif self._is_storage:
             # include amplify to determine the schedule
             flex_calc = FlexCalculator(
                 max_p_bat=self._storage[1],
@@ -601,7 +683,7 @@ class COHDA:
                             ][timestamp]
                         ):
                             list_of_outputs.append(
-                                self.calculate_amount(
+                                calculate_amount(self._value_weights,
                                     int(
                                         candidate.schedules[
                                             self._part_id
@@ -621,7 +703,7 @@ class COHDA:
                                     possible_gas_amounts, np.array(gas_amount)
                                 )
                                 list_of_outputs.append(
-                                    self.calculate_amount(gas_amount, fixed_values)
+                                    calculate_amount(self._value_weights,gas_amount, fixed_values)
                                 )
                             if len(list_of_outputs) == 1:
                                 gas_amount = list_of_outputs[0]["gas_amount"]
@@ -631,14 +713,14 @@ class COHDA:
                                             possible_gas_amounts, [1]
                                         )
                                         list_of_outputs.append(
-                                            self.calculate_amount(1, fixed_values)
+                                            calculate_amount(self._value_weights,1, fixed_values)
                                         )
                                         if max_gas_amount > 1:
                                             possible_gas_amounts = np.setdiff1d(
                                                 possible_gas_amounts, [2]
                                             )
                                             list_of_outputs.append(
-                                                self.calculate_amount(2, fixed_values)
+                                                calculate_amount(self._value_weights,2, fixed_values)
                                             )
                                     elif gas_amount == max_gas_amount:
                                         possible_gas_amounts = np.setdiff1d(
@@ -646,7 +728,7 @@ class COHDA:
                                             np.array(gas_amount - 1),
                                         )
                                         list_of_outputs.append(
-                                            self.calculate_amount(
+                                            calculate_amount(self._value_weights,
                                                 gas_amount - 1, fixed_values
                                             )
                                         )
@@ -659,7 +741,7 @@ class COHDA:
                                                 np.array(gas_amount - 2),
                                             )
                                             list_of_outputs.append(
-                                                self.calculate_amount(
+                                                calculate_amount(self._value_weights,
                                                     gas_amount - 2, fixed_values
                                                 )
                                             )
@@ -669,7 +751,7 @@ class COHDA:
                                             np.array(gas_amount - 1),
                                         )
                                         list_of_outputs.append(
-                                            self.calculate_amount(
+                                            calculate_amount(self._value_weights,
                                                 gas_amount - 1, fixed_values
                                             )
                                         )
@@ -678,7 +760,7 @@ class COHDA:
                                             np.array(gas_amount + 1),
                                         )
                                         list_of_outputs.append(
-                                            self.calculate_amount(
+                                            calculate_amount(self._value_weights,
                                                 gas_amount + 1, fixed_values
                                             )
                                         )
@@ -751,7 +833,7 @@ class COHDA:
                                         possible_gas_amounts, np.array(gas_amount)
                                     )
                                     list_of_outputs.append(
-                                        self.calculate_amount(gas_amount, fixed_values)
+                                        calculate_amount(self._value_weights,gas_amount, fixed_values)
                                     )
                                     # list_of_outputs.sort(key=lambda x: [x['value'], -x['gas_amount']], reverse=True)
                                     # list_of_outputs = list_of_outputs[:3]
@@ -842,55 +924,6 @@ class COHDA:
 
         return sysconfig, current_best_candidate
 
-    def _calc_global_penalty(self, fixed_values, end_power, end_heat):
-        return (
-            -np.power(
-                np.absolute(end_power - fixed_values["power_open"]),
-                self._value_weights["penalty_exponent"],
-            )
-            * self._value_weights["power_penalty"]
-            - np.power(
-                np.absolute(end_heat - fixed_values["heat_open"]),
-                self._value_weights["penalty_exponent"],
-            )
-            * self._value_weights["heat_penalty"]
-        )
-
-    def calculate_amount(self, amount, fixed_values):
-        gas_to_power = amount * self._value_weights["gas_to_power_factor"]
-        gas_to_heat = amount * self._value_weights["gas_to_heat_factor"]
-        power_to_heat = 0
-        power_power_to_heat = 0
-        if self._value_weights["power_to_heat_amount"] > 0:
-            power_to_heat = max(
-                amount * self._value_weights["power_to_heat_factor"],
-                0,
-            )
-            power_power_to_heat = (
-                power_to_heat / self._value_weights["power_to_heat_factor"]
-            )
-        end_power = (
-            fixed_values["power_schedule_timestamp"]
-            + gas_to_power
-            - power_power_to_heat
-        )
-        end_heat = gas_to_heat + power_to_heat
-        value = (
-            end_power * self._value_weights["power_kwh_price"]
-            + end_heat * self._value_weights["heat_kwh_price"]
-            + fixed_values["opportunity"] * (fixed_values["max_amount"] - amount)
-            + self._calc_global_penalty(fixed_values, end_power, end_heat)
-            - amount * self._value_weights["gas_price"]
-        )
-
-        return {
-            "gas_amount": amount,
-            "value": value,
-            "end_power": end_power,
-            "end_heat": end_heat,
-            "power_to_heat": power_to_heat,
-            "power_to_conversion": 0,
-        }
 
     def _act(
         self, new_sysconfig: SystemConfig, new_candidate: SolutionCandidate
@@ -1009,6 +1042,8 @@ class COHDARole(NegotiationParticipant):
         value_weights,
         storage=None,
         is_storage=False,
+        is_classic=False,
+        energy_schedules=None,
         local_acceptable_func=None,
         check_inbox_interval: float = 0.1,
     ):
@@ -1035,6 +1070,8 @@ class COHDARole(NegotiationParticipant):
         self._cohda_msg_queues = {}
         self._cohda_tasks = []
         self.check_inbox_interval = check_inbox_interval
+        self._is_classic = is_classic
+        self._energy_schedules = energy_schedules
 
     def create_cohda(self, part_id: str):
         """
@@ -1049,6 +1086,8 @@ class COHDARole(NegotiationParticipant):
             value_weights=self._value_weights,
             storage=self._storage,
             is_storage=self._is_storage,
+            is_classic=self._is_classic,
+            energy_schedules=self._energy_schedules
         )
 
     async def on_stop(self) -> None:
