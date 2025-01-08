@@ -1,9 +1,23 @@
-# mango-library
+# Coordination of Storage, Electrical, and Heating Resources by Self-Interested Agents
 
-The project is made for 'mango-agents==0.4.0'.
-For faster calculation the **line 278** of **site-packages/mango/core/agent.py** has to be changed.
-It is running **<method 'format' of 'str' objects>**, but the messages are large.
-To avoid this remove **str(message)** out of:
+## Installation
+
+```bash
+pip install -r requirements.txt
 ```
-logger.debug('Agent %s: Received message;%s}', self.aid, str(message))
+
+## Run Experiments
+
+```bash
+python experiments/mecohda.py
 ```
+
+The results can be found in `/log`.
+
+## Create Plots
+
+```bash
+python experiments/mecohda_eval.py
+```
+
+The results can be found in `/data`.
