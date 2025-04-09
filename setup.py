@@ -12,13 +12,13 @@ from shutil import rmtree
 from setuptools import find_packages, setup, Command
 
 # Package meta-data.
-NAME = 'mango-library'
-DESCRIPTION = 'Library for the Modular Python Agent Framework MANGO'
-URL = 'https://gitlab.com/mango-agents/mango-library'
+NAME = 'mecohda'
+DESCRIPTION = 'mecohda'
+URL = 'https://github.com/Digitalized-Energy-Systems/heat-electricity-storage-cohda'
 EMAIL = 'mango@offis.de'
-AUTHOR = 'Mango Team'
+AUTHOR = 'Rico Schrage, Jari Radler, mango Team'
 REQUIRES_PYTHON = '>=3.7.0'
-VERSION = '0.1.2'
+VERSION = '0.1.0'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
@@ -106,7 +106,7 @@ setup(
     # url=URL,
     packages=find_packages(
         exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
-    namespace_packages=['mango_library'],
+    namespace_packages=['mecohda'],
     # If your package is a single module, use this instead of 'packages':
     # py_modules=['mypackage'],
 
